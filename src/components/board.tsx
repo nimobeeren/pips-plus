@@ -31,7 +31,7 @@ function getLabelCell(cells: [number, number][]): [number, number] {
   return best;
 }
 
-/** Compute which edges are on the boundary and which corners should be rounded for each cell in a region. */
+/** Compute which edges are on the boundary for each cell in a region. */
 function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
   string,
   {
@@ -39,10 +39,6 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
     borderRight: boolean;
     borderBottom: boolean;
     borderLeft: boolean;
-    roundTL: boolean;
-    roundTR: boolean;
-    roundBR: boolean;
-    roundBL: boolean;
   }
 > {
   const cellSet = new Set(regionCells.map(([r, c]) => cellKey(r, c)));
@@ -53,10 +49,6 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
       borderRight: boolean;
       borderBottom: boolean;
       borderLeft: boolean;
-      roundTL: boolean;
-      roundTR: boolean;
-      roundBR: boolean;
-      roundBL: boolean;
     }
   >();
 
@@ -72,21 +64,11 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
     const borderBottom = !hasBottom;
     const borderLeft = !hasLeft;
 
-    // Round a corner only if both adjacent edges are on the boundary
-    const roundTL = borderTop && borderLeft;
-    const roundTR = borderTop && borderRight;
-    const roundBR = borderBottom && borderRight;
-    const roundBL = borderBottom && borderLeft;
-
     info.set(cellKey(r, c), {
       borderTop,
       borderRight,
       borderBottom,
       borderLeft,
-      roundTL,
-      roundTR,
-      roundBR,
-      roundBL,
     });
   }
   return info;
@@ -204,7 +186,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         const boundary = regionBoundaryInfos
           .get(info.regionId)
           ?.get(cellKey(r, c));
-        const br = "0px";
         const rect = boundary
           ? getRegionCellRect(r, c, minRow, minCol, boundary)
           : {
@@ -225,7 +206,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
               height: rect.height,
               backgroundColor: info.color,
               opacity: 0.35,
-              borderRadius: br,
               zIndex: 1,
             }}
             data-testid={`cell-${r}-${c}`}

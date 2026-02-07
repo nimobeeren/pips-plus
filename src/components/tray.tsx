@@ -70,7 +70,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
         return (
           <div
             key={`slot-${i}`}
-            className="absolute rounded-lg bg-neutral-150"
+            className="absolute bg-neutral-150"
             style={{
               left: pos.x + trayOffsetX,
               top: pos.y,
