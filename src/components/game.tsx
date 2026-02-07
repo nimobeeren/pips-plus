@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { Board } from "./board";
-import { CELL_SIZE } from "./domino";
+import { CELL_SIZE, DOMINO_SIZE, DOMINO_SPAN } from "./domino";
 import { GameControls } from "./game-controls";
 import { GameDragGhost } from "./game-drag-ghost";
 import { GameStatus } from "./game-status";
@@ -173,92 +173,77 @@ export function Game({ puzzle }: GameProps) {
 
       const domino = state.dominoes.find((d) => d.id === dragInfo.dominoId);
 
-      // Try dropping on the board
+      // Try dropping on the board: snap to closest valid position that
+      // overlaps with the ghost's visual bounding box
       const boardEl = boardRef.current;
       if (boardEl && domino) {
         const boardRect = boardEl.getBoundingClientRect();
-        const dropX = e.clientX - boardRect.left;
-        const dropY = e.clientY - boardRect.top;
+        const minRow = Math.min(...puzzle.cells.map(([r]) => r));
+        const minCol = Math.min(...puzzle.cells.map(([, c]) => c));
+        const maxRow = Math.max(...puzzle.cells.map(([r]) => r));
+        const maxCol = Math.max(...puzzle.cells.map(([, c]) => c));
 
-        if (
-          dropX >= -CELL_SIZE &&
-          dropX <= boardRect.width + CELL_SIZE &&
-          dropY >= -CELL_SIZE &&
-          dropY <= boardRect.height + CELL_SIZE
-        ) {
-          const minRow = Math.min(...puzzle.cells.map(([r]) => r));
-          const minCol = Math.min(...puzzle.cells.map(([, c]) => c));
+        const ghostLeft = e.clientX - dragInfo.offsetX - boardRect.left;
+        const ghostTop = e.clientY - dragInfo.offsetY - boardRect.top;
+        const horizontal = isHorizontal(domino.orientation);
+        const ghostW = horizontal ? DOMINO_SPAN : DOMINO_SIZE;
+        const ghostH = horizontal ? DOMINO_SIZE : DOMINO_SPAN;
+        const cellsWide = horizontal ? 2 : 1;
+        const cellsTall = horizontal ? 1 : 2;
 
-          // Center the domino on the pointer position
-          const horizontal = isHorizontal(domino.orientation);
-          let anchorCol: number;
-          let anchorRow: number;
+        let bestRow = 0;
+        let bestCol = 0;
+        let bestDist = Infinity;
 
-          if (horizontal) {
-            anchorCol = Math.round(dropX / CELL_SIZE - 1) + minCol;
-            anchorRow = Math.floor(dropY / CELL_SIZE) + minRow;
-          } else {
-            anchorCol = Math.floor(dropX / CELL_SIZE) + minCol;
-            anchorRow = Math.round(dropY / CELL_SIZE - 1) + minRow;
-          }
-
-          // Try primary position
-          if (
-            canPlaceOnBoard(
-              state,
-              dragInfo.dominoId,
-              anchorRow,
-              anchorCol,
-              domino.orientation,
-            )
-          ) {
-            dispatch({
-              type: "PLACE_ON_BOARD",
-              id: dragInfo.dominoId,
-              row: anchorRow,
-              col: anchorCol,
-            });
-            setDragInfo(null);
-            return;
-          }
-
-          // Try nearby positions as fallback
-          const offsets = horizontal
-            ? [
-                [0, -1],
-                [0, 1],
-                [-1, 0],
-                [1, 0],
-              ]
-            : [
-                [-1, 0],
-                [1, 0],
-                [0, -1],
-                [0, 1],
-              ];
-
-          for (const [dr, dc] of offsets) {
-            const r = anchorRow + dr;
-            const c = anchorCol + dc;
+        for (let r = minRow; r <= maxRow; r++) {
+          for (let c = minCol; c <= maxCol; c++) {
             if (
-              canPlaceOnBoard(
+              !canPlaceOnBoard(
                 state,
                 dragInfo.dominoId,
                 r,
                 c,
                 domino.orientation,
               )
-            ) {
-              dispatch({
-                type: "PLACE_ON_BOARD",
-                id: dragInfo.dominoId,
-                row: r,
-                col: c,
-              });
-              setDragInfo(null);
-              return;
+            )
+              continue;
+
+            const candLeft = (c - minCol) * CELL_SIZE;
+            const candTop = (r - minRow) * CELL_SIZE;
+            const candRight = candLeft + cellsWide * CELL_SIZE;
+            const candBottom = candTop + cellsTall * CELL_SIZE;
+
+            if (
+              ghostLeft + ghostW <= candLeft ||
+              ghostLeft >= candRight ||
+              ghostTop + ghostH <= candTop ||
+              ghostTop >= candBottom
+            )
+              continue;
+
+            const ghostCx = ghostLeft + ghostW / 2;
+            const ghostCy = ghostTop + ghostH / 2;
+            const candCx = candLeft + (cellsWide * CELL_SIZE) / 2;
+            const candCy = candTop + (cellsTall * CELL_SIZE) / 2;
+            const dist = (ghostCx - candCx) ** 2 + (ghostCy - candCy) ** 2;
+
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestRow = r;
+              bestCol = c;
             }
           }
+        }
+
+        if (bestDist < Infinity) {
+          dispatch({
+            type: "PLACE_ON_BOARD",
+            id: dragInfo.dominoId,
+            row: bestRow,
+            col: bestCol,
+          });
+          setDragInfo(null);
+          return;
         }
       }
 

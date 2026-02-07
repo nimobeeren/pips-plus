@@ -289,7 +289,7 @@ function buildRegionPath(
   const insetLoops = simplified.map((loop, i) =>
     insetLoop(loop, i === outerIdx ? cellInset : -cellInset),
   );
-  const cornerRadius = cellInset * 2;
+  const cornerRadius = cellInset * 2.8;
   return insetLoops
     .map((loop) => pointsToRoundedPath(loop, cornerRadius))
     .join(" ");
