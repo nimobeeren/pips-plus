@@ -198,51 +198,36 @@ function clampTrayPosition(
 }
 
 /**
- * Rotate a board domino around its pivot cell (the cell the user clicked).
- * Returns new anchor and orientation, or null if invalid.
+ * Rotate a board domino 90° CW around a pivot cell.
+ * The pivot cell must be one of the two cells the domino covers.
+ * Returns new anchor position and orientation.
  */
 function rotateBoardDomino(
   row: number,
   col: number,
   orientation: Orientation,
   values: [Pip, Pip],
-  pivotCellIndex: 0 | 1,
-): { row: number; col: number; orientation: Orientation } | null {
+  pivotCell: [number, number],
+): { row: number; col: number; orientation: Orientation } {
   const covered = getCoveredCells(row, col, orientation, values);
-  const pivot = covered[pivotCellIndex];
-  const other = covered[1 - pivotCellIndex];
+  const pivotIdx = covered.findIndex(
+    (c) => c.cell[0] === pivotCell[0] && c.cell[1] === pivotCell[1],
+  );
+  if (pivotIdx === -1) {
+    throw new Error("Pivot cell is not covered by the domino");
+  }
+  const other = covered[1 - pivotIdx];
 
   // Rotate the other cell 90° CW around pivot: (dr, dc) → (dc, -dr)
-  const dr = other.cell[0] - pivot.cell[0];
-  const dc = other.cell[1] - pivot.cell[1];
-  const newOtherCell: [number, number] = [
-    pivot.cell[0] + dc,
-    pivot.cell[1] - dr,
-  ];
+  const dr = other.cell[0] - pivotCell[0];
+  const dc = other.cell[1] - pivotCell[1];
+  const newOtherCell: [number, number] = [pivotCell[0] + dc, pivotCell[1] - dr];
 
-  const sameRow = pivot.cell[0] === newOtherCell[0];
-
-  if (sameRow) {
-    const newAnchorCol = Math.min(pivot.cell[1], newOtherCell[1]);
-    const leftIsPivot = pivot.cell[1] < newOtherCell[1];
-    const leftValue = leftIsPivot ? pivot.value : other.value;
-    const newOrientation: Orientation = leftValue === values[0] ? 0 : 180;
-    return {
-      row: pivot.cell[0],
-      col: newAnchorCol,
-      orientation: newOrientation,
-    };
-  } else {
-    const newAnchorRow = Math.min(pivot.cell[0], newOtherCell[0]);
-    const topIsPivot = pivot.cell[0] < newOtherCell[0];
-    const topValue = topIsPivot ? pivot.value : other.value;
-    const newOrientation: Orientation = topValue === values[0] ? 90 : 270;
-    return {
-      row: newAnchorRow,
-      col: pivot.cell[1],
-      orientation: newOrientation,
-    };
-  }
+  return {
+    row: Math.min(pivotCell[0], newOtherCell[0]),
+    col: Math.min(pivotCell[1], newOtherCell[1]),
+    orientation: ((orientation + 90) % 360) as Orientation,
+  };
 }
 
 /**
@@ -277,36 +262,53 @@ export function reducer(state: GameState, action: GameAction): GameState {
         const nextOrientation = ((d.orientation + 90) % 360) as Orientation;
 
         if (d.location.type === "board") {
-          // Determine which cell index is the pivot (0 = anchor half, 1 = far half)
-          const pivotCellIndex = action.pivotFar ? 1 : 0;
-          const result = rotateBoardDomino(
+          // Resolve pivot to a cell position (stays fixed across chained rotations)
+          const covered = getCoveredCells(
             d.location.row,
             d.location.col,
             d.orientation,
             d.values,
-            pivotCellIndex as 0 | 1,
           );
-          if (!result) return d;
-          if (
-            !canPlaceOnBoard(
-              state,
-              d.id,
-              result.row,
-              result.col,
-              result.orientation,
-            )
-          ) {
-            return d;
-          }
-          return {
-            ...d,
-            orientation: result.orientation,
-            location: {
-              type: "board" as const,
-              row: result.row,
-              col: result.col,
-            },
+          const isFlipped = d.orientation === 180 || d.orientation === 270;
+          const pivotIdx = action.pivotFar !== isFlipped ? 1 : 0;
+          const pivotCell = covered[pivotIdx].cell;
+
+          // Try rotating 90°, 180°, 270° CW and use the first that fits
+          let current = {
+            row: d.location.row,
+            col: d.location.col,
+            orientation: d.orientation,
           };
+          for (let step = 0; step < 3; step++) {
+            const result = rotateBoardDomino(
+              current.row,
+              current.col,
+              current.orientation,
+              d.values,
+              pivotCell,
+            );
+            if (
+              canPlaceOnBoard(
+                state,
+                d.id,
+                result.row,
+                result.col,
+                result.orientation,
+              )
+            ) {
+              return {
+                ...d,
+                orientation: result.orientation,
+                location: {
+                  type: "board" as const,
+                  row: result.row,
+                  col: result.col,
+                },
+              };
+            }
+            current = result;
+          }
+          return d;
         }
 
         // Tray domino: adjust position if pivoting around far half
