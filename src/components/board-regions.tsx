@@ -47,20 +47,22 @@ export function BoardRegionFillOverlay({
       style={{ zIndex: 25 }}
       aria-hidden="true"
     >
-      {regions.map((region) => {
-        const path = buildRegionPath(region, layout, cellSize, cellInset);
-        if (!path) return null;
+      {regions
+        .filter((region) => region.constraint.kind !== "none")
+        .map((region) => {
+          const path = buildRegionPath(region, layout, cellSize, cellInset);
+          if (!path) return null;
 
-        return (
-          <path
-            key={`region-fill-${region.id}`}
-            d={path}
-            fill={region.color}
-            fillRule="evenodd"
-            opacity={0.35}
-          />
-        );
-      })}
+          return (
+            <path
+              key={`region-fill-${region.id}`}
+              d={path}
+              fill={region.color}
+              fillRule="evenodd"
+              opacity={0.25}
+            />
+          );
+        })}
     </svg>
   );
 }
@@ -81,23 +83,25 @@ export function BoardRegionBorderOverlay({
       style={{ zIndex: 30 }}
       aria-hidden="true"
     >
-      {regions.map((region) => {
-        const path = buildRegionPath(region, layout, cellSize, cellInset);
-        if (!path) return null;
+      {regions
+        .filter((region) => region.constraint.kind !== "none")
+        .map((region) => {
+          const path = buildRegionPath(region, layout, cellSize, cellInset);
+          if (!path) return null;
 
-        return (
-          <path
-            key={`region-border-${region.id}`}
-            d={path}
-            fill="none"
-            stroke={region.color}
-            strokeWidth={2}
-            strokeLinecap="square"
-            strokeLinejoin="miter"
-            opacity={0.7}
-          />
-        );
-      })}
+          return (
+            <path
+              key={`region-border-${region.id}`}
+              d={path}
+              fill="none"
+              stroke={region.color}
+              strokeWidth={2}
+              strokeLinecap="square"
+              strokeLinejoin="miter"
+              opacity={0.7}
+            />
+          );
+        })}
     </svg>
   );
 }
@@ -153,6 +157,74 @@ export function BoardRegionLabels({
   );
 }
 
+export function buildCellsOutlinePath(
+  cells: [number, number][],
+  layout: BoardLayout,
+  cellSize: number,
+  padding: number,
+  cornerRadius: number,
+): string {
+  const cellSet = new Set(cells.map(([r, c]) => cellKey(r, c)));
+  const borderSegments: Segment[] = [];
+
+  for (const [r, c] of cells) {
+    const x = (c - layout.minCol) * cellSize;
+    const y = (r - layout.minRow) * cellSize;
+
+    if (!cellSet.has(cellKey(r - 1, c)))
+      borderSegments.push({ x1: x, y1: y, x2: x + cellSize, y2: y });
+    if (!cellSet.has(cellKey(r, c + 1)))
+      borderSegments.push({
+        x1: x + cellSize,
+        y1: y,
+        x2: x + cellSize,
+        y2: y + cellSize,
+      });
+    if (!cellSet.has(cellKey(r + 1, c)))
+      borderSegments.push({
+        x1: x,
+        y1: y + cellSize,
+        x2: x + cellSize,
+        y2: y + cellSize,
+      });
+    if (!cellSet.has(cellKey(r, c - 1)))
+      borderSegments.push({ x1: x, y1: y, x2: x, y2: y + cellSize });
+  }
+
+  const loops = segmentsToLoops(borderSegments);
+  if (!loops.length) return "";
+
+  const simplified = loops.map((loop) => simplifyLoop(loop));
+
+  // Find the outer loop (largest area) so we can expand it outward,
+  // while inner loops (holes) get expanded inward.
+  let outerIdx = 0;
+  let maxArea = 0;
+  for (let i = 0; i < simplified.length; i++) {
+    const area = Math.abs(shoelaceArea(simplified[i]));
+    if (area > maxArea) {
+      maxArea = area;
+      outerIdx = i;
+    }
+  }
+
+  const paddedLoops = simplified.map((loop, i) =>
+    insetLoop(loop, i === outerIdx ? -padding : padding),
+  );
+  return paddedLoops
+    .map((loop) => pointsToRoundedPath(loop, cornerRadius))
+    .join(" ");
+}
+
+function shoelaceArea(points: Point[]): number {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const next = points[(i + 1) % points.length];
+    area += points[i].x * next.y - next.x * points[i].y;
+  }
+  return area / 2;
+}
+
 function buildRegionPath(
   region: Region,
   layout: BoardLayout,
@@ -200,8 +272,22 @@ function buildRegionPath(
   const loops = segmentsToLoops(borderSegments);
   if (!loops.length) return "";
 
-  const insetLoops = loops.map((loop) =>
-    insetLoop(simplifyLoop(loop), cellInset),
+  const simplified = loops.map((loop) => simplifyLoop(loop));
+
+  // Find the outer loop (largest area) so we can inset it inward,
+  // while inner loops (holes) get inset outward to keep consistent padding.
+  let outerIdx = 0;
+  let maxArea = 0;
+  for (let i = 0; i < simplified.length; i++) {
+    const area = Math.abs(shoelaceArea(simplified[i]));
+    if (area > maxArea) {
+      maxArea = area;
+      outerIdx = i;
+    }
+  }
+
+  const insetLoops = simplified.map((loop, i) =>
+    insetLoop(loop, i === outerIdx ? cellInset : -cellInset),
   );
   const cornerRadius = cellInset * 2;
   return insetLoops

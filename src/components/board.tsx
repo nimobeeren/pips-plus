@@ -5,9 +5,12 @@ import {
   BoardRegionBorderOverlay,
   BoardRegionFillOverlay,
   BoardRegionLabels,
+  buildCellsOutlinePath,
   type BoardLayout,
 } from "./board-regions.tsx";
 import { CELL_INSET, CELL_SIZE, Domino } from "./domino";
+
+const BOARD_PADDING = CELL_INSET * 2;
 
 interface BoardProps {
   puzzle: Puzzle;
@@ -47,6 +50,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       style={{ width: layout.width, height: layout.height }}
       data-testid="board"
     >
+      <BoardBackground cells={puzzle.cells} layout={layout} />
       <BoardGrid cells={puzzle.cells} layout={layout} />
       <BoardRegionFillOverlay
         regions={puzzle.regions}
@@ -78,6 +82,43 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
     </div>
   );
 });
+
+interface BoardBackgroundProps {
+  cells: [number, number][];
+  layout: BoardLayout;
+}
+
+function BoardBackground({ cells, layout }: BoardBackgroundProps) {
+  const cornerRadius = CELL_INSET * 3;
+  const path = buildCellsOutlinePath(
+    cells,
+    layout,
+    CELL_SIZE,
+    BOARD_PADDING,
+    cornerRadius,
+  );
+  if (!path) return null;
+
+  const svgWidth = layout.width + 2 * BOARD_PADDING;
+  const svgHeight = layout.height + 2 * BOARD_PADDING;
+
+  return (
+    <svg
+      className="pointer-events-none absolute"
+      style={{
+        left: -BOARD_PADDING,
+        top: -BOARD_PADDING,
+        width: svgWidth,
+        height: svgHeight,
+      }}
+      viewBox={`${-BOARD_PADDING} ${-BOARD_PADDING} ${svgWidth} ${svgHeight}`}
+      preserveAspectRatio="xMinYMin meet"
+      aria-hidden="true"
+    >
+      <path d={path} fill="var(--color-neutral-200)" fillRule="evenodd" />
+    </svg>
+  );
+}
 
 interface BoardGridProps {
   cells: [number, number][];
