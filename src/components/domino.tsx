@@ -42,6 +42,7 @@ export function Domino({
   if (noRotation) {
     const swapped = orientation === 180 || orientation === 270;
     const displayValues: [Pip, Pip] = swapped ? [values[1], values[0]] : values;
+    const pipRotation = orientation === 0 ? 0 : orientation;
 
     return (
       <div
@@ -64,7 +65,14 @@ export function Domino({
         aria-label={`Domino ${values[0]}-${values[1]}`}
       >
         <div className="flex flex-1 items-center justify-center p-1">
-          <PipDots value={displayValues[0]} size={CELL_SIZE - 8} />
+          <div
+            className="h-full w-full"
+            style={{
+              transform: pipRotation ? `rotate(${pipRotation}deg)` : undefined,
+            }}
+          >
+            <PipDots value={displayValues[0]} size={CELL_SIZE - 8} />
+          </div>
         </div>
         <div
           className={cn(
@@ -73,7 +81,14 @@ export function Domino({
           )}
         />
         <div className="flex flex-1 items-center justify-center p-1">
-          <PipDots value={displayValues[1]} size={CELL_SIZE - 8} />
+          <div
+            className="h-full w-full"
+            style={{
+              transform: pipRotation ? `rotate(${pipRotation}deg)` : undefined,
+            }}
+          >
+            <PipDots value={displayValues[1]} size={CELL_SIZE - 8} />
+          </div>
         </div>
       </div>
     );
