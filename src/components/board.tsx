@@ -92,7 +92,6 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
   return info;
 }
 
-const BORDER_RADIUS = 10;
 function getRegionCellRect(
   r: number,
   c: number,
@@ -188,7 +187,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       {puzzle.cells.map(([r, c]) => (
         <div
           key={`base-${r}-${c}`}
-          className="absolute rounded-lg bg-neutral-150"
+          className="absolute bg-neutral-150"
           style={{
             left: (c - minCol) * CELL_SIZE + CELL_INSET,
             top: (r - minRow) * CELL_SIZE + CELL_INSET,
@@ -205,9 +204,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         const boundary = regionBoundaryInfos
           .get(info.regionId)
           ?.get(cellKey(r, c));
-        const br = boundary
-          ? `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`
-          : "0px";
+        const br = "0px";
         const rect = boundary
           ? getRegionCellRect(r, c, minRow, minCol, boundary)
           : {
@@ -275,9 +272,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         const boundary = regionBoundaryInfos
           .get(info.regionId)
           ?.get(cellKey(r, c));
-        const br = boundary
-          ? `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`
-          : "0px";
         const rect = boundary
           ? getRegionCellRect(r, c, minRow, minCol, boundary)
           : {
@@ -298,7 +292,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
               height: rect.height,
               backgroundColor: info.color,
               opacity: 0.15,
-              borderRadius: br,
               zIndex: 20,
             }}
           />
@@ -321,7 +314,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
             boundary.borderLeft;
           if (!hasBorder) return null;
 
-          const br = `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`;
           const rect = getRegionCellRect(r, c, minRow, minCol, boundary);
 
           return (
@@ -345,7 +337,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
                 borderLeft: boundary.borderLeft
                   ? `2px dashed ${region.color}`
                   : "none",
-                borderRadius: br,
                 opacity: 0.7,
                 zIndex: 21,
               }}
@@ -357,7 +348,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       {/* Layer 5: Keyboard cursor */}
       {keyboardCursor && (
         <div
-          className="pointer-events-none absolute rounded-lg"
+          className="pointer-events-none absolute"
           style={{
             left: (keyboardCursor[1] - minCol) * CELL_SIZE - 2,
             top: (keyboardCursor[0] - minRow) * CELL_SIZE - 2,
@@ -389,7 +380,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
             }}
           >
             <div
-              className="absolute h-full w-full rounded-sm shadow-sm"
+              className="absolute h-full w-full shadow-sm"
               style={{
                 backgroundColor: isViolated ? "#ef4444" : region.color,
                 opacity: 1,

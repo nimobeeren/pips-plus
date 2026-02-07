@@ -13,7 +13,8 @@ import type { Puzzle } from "./types";
  *   A (top, rose):    (0,1) (0,2) (1,1) (1,2) — sum = 10
  *   B (left, sky):    (1,0) (2,0)              — equal
  *   C (right, green): (1,3) (2,3)              — > 3
- *   D (bottom, violet): (2,1) (2,2) (3,1) (3,2) — not-equal
+ *   D (bottom, violet): (2,1) (2,2) (3,1)      — not-equal
+ *   E (bottom tip, sand): (3,2)                — blank
  */
 export const starterPuzzle: Puzzle = {
   cells: [
@@ -66,10 +67,15 @@ export const starterPuzzle: Puzzle = {
         [2, 1],
         [2, 2],
         [3, 1],
-        [3, 2],
       ],
       constraint: { kind: "not-equal" },
       color: "#c4a0d8",
+    },
+    {
+      id: "E",
+      cells: [[3, 2]],
+      constraint: { kind: "none" },
+      color: "#e8c4a0",
     },
   ],
   dominoes: [

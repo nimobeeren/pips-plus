@@ -51,7 +51,7 @@ export function Domino({
     return (
       <div
         className={cn(
-          "flex cursor-grab touch-none select-none items-stretch rounded-lg border-2 border-neutral-300 bg-white shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-blue-400 focus-visible:ring-offset-2",
+          "flex cursor-grab touch-none select-none items-stretch border-2 border-neutral-300 bg-white shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-blue-400 focus-visible:ring-offset-2",
           isDragging && "cursor-grabbing shadow-lg opacity-90",
           isHeld && "ring-3 ring-blue-500 shadow-lg -translate-y-1",
         )}
@@ -111,7 +111,7 @@ export function Domino({
   return (
     <div
       className={cn(
-        "flex cursor-grab touch-none select-none items-stretch rounded-lg border-2 border-neutral-300 bg-white shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-blue-400 focus-visible:ring-offset-2",
+        "flex cursor-grab touch-none select-none items-stretch border-2 border-neutral-300 bg-white shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-blue-400 focus-visible:ring-offset-2",
         isDragging && "cursor-grabbing shadow-lg opacity-90",
         isHeld && "ring-3 ring-blue-500 shadow-lg -translate-y-1",
         "transition-transform duration-150 ease-in-out",
