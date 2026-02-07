@@ -93,6 +93,7 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
 }
 
 const BORDER_RADIUS = 10;
+const CELL_INSET = 3;
 
 interface BoardProps {
   puzzle: Puzzle;
@@ -160,6 +161,20 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       style={{ width: boardWidth, height: boardHeight }}
       data-testid="board"
     >
+      {/* Layer 0: Base cell backgrounds */}
+      {puzzle.cells.map(([r, c]) => (
+        <div
+          key={`base-${r}-${c}`}
+          className="absolute rounded-lg bg-neutral-150"
+          style={{
+            left: (c - minCol) * CELL_SIZE + CELL_INSET,
+            top: (r - minRow) * CELL_SIZE + CELL_INSET,
+            width: CELL_SIZE - 2 * CELL_INSET,
+            height: CELL_SIZE - 2 * CELL_INSET,
+          }}
+        />
+      ))}
+
       {/* Layer 1: Cell backgrounds with region colors and smart rounding */}
       {puzzle.cells.map(([r, c]) => {
         const info = cellRegionMap.get(cellKey(r, c));

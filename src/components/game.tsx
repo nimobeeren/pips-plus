@@ -146,6 +146,19 @@ const PIVOT_FAR_OFFSET: Record<Orientation, { dx: number; dy: number }> = {
 };
 
 /**
+ * Visual bounding box offset relative to the wrapper position for CSS-rotated dominoes.
+ * The Domino component uses transformOrigin at (CELL_SIZE/2, CELL_SIZE/2) rather than
+ * the center, so the visual box shifts for some orientations.
+ */
+const ROTATION_VISUAL_OFFSET: Record<Orientation, { dx: number; dy: number }> =
+  {
+    0: { dx: 0, dy: 0 },
+    90: { dx: 0, dy: -CELL_SIZE },
+    180: { dx: -CELL_SIZE, dy: 0 },
+    270: { dx: 0, dy: 0 },
+  };
+
+/**
  * Rotate a board domino around its pivot cell (the cell the user clicked).
  * Returns new anchor and orientation, or null if invalid.
  */
@@ -671,19 +684,20 @@ export function Game({ puzzle }: GameProps) {
       if (trayEl) {
         const trayRect = trayEl.getBoundingClientRect();
         if (e.clientY >= trayRect.top) {
-          // Position relative to the tray content area, accounting for grab offset
-          const horizontal = domino ? isHorizontal(domino.orientation) : true;
-          const ghostW = horizontal ? 2 * CELL_SIZE : CELL_SIZE;
-          const ghostH = horizontal ? CELL_SIZE : 2 * CELL_SIZE;
+          // Ghost visual top-left in tray coordinates
           const ghostLeft = e.clientX - dragInfo.offsetX;
           const ghostTop = e.clientY - dragInfo.offsetY;
-          const dropX = ghostLeft - trayRect.left + ghostW / 2 - CELL_SIZE;
-          const dropY = ghostTop - trayRect.top + ghostH / 2 - CELL_SIZE / 2;
+          const visualX = ghostLeft - trayRect.left;
+          const visualY = ghostTop - trayRect.top;
+
+          // Convert visual position to wrapper position, compensating for
+          // the CSS rotation offset so the domino appears where it was dropped
+          const offset = ROTATION_VISUAL_OFFSET[domino?.orientation ?? 0];
           dispatch({
             type: "MOVE_TO_TRAY",
             id: dragInfo.dominoId,
-            x: Math.max(0, dropX),
-            y: Math.max(0, dropY),
+            x: visualX - offset.dx,
+            y: visualY - offset.dy,
           });
           setDragInfo(null);
           return;
