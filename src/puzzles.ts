@@ -11,10 +11,10 @@ import type { Puzzle } from "./types";
  *
  * Regions:
  *   A (top-left, rose): (0,0) (0,1) (1,0)          — sum = 8
- *   B (top-right, sky): (0,2) (1,2) (1,3)         — not-equal
- *   C (right, green):   (2,2) (2,3)               — > 2
- *   D (bottom-left, violet): (2,0) (2,1) (3,1)    — equal
- *   E (bottom tip, sand): (3,2)                   — blank
+ *   B (right 2x2, sky): (1,2) (1,3) (2,2) (2,3)    — not-equal
+ *   C (top-right, green): (0,2)                    — blank
+ *   D (bottom-left, violet): (2,0) (2,1) (3,1)     — equal
+ *   E (bottom tip, sand): (3,2)                    — blank
  */
 export const starterPuzzle: Puzzle = {
   cells: [
@@ -45,20 +45,18 @@ export const starterPuzzle: Puzzle = {
     {
       id: "B",
       cells: [
-        [0, 2],
         [1, 2],
         [1, 3],
+        [2, 2],
+        [2, 3],
       ],
       constraint: { kind: "not-equal" },
       color: "#a0c4e8",
     },
     {
       id: "C",
-      cells: [
-        [2, 2],
-        [2, 3],
-      ],
-      constraint: { kind: "greater", target: 2 },
+      cells: [[0, 2]],
+      constraint: { kind: "none" },
       color: "#a0d8a0",
     },
     {
