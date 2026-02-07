@@ -35,6 +35,7 @@ interface TrayProps {
   onDominoClick: (id: string) => void;
   onDominoKeyDown: (id: string, e: React.KeyboardEvent) => void;
   heldDominoId: string | null;
+  trayOffsetX: number;
 }
 
 export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
@@ -46,6 +47,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
     onDominoClick,
     onDominoKeyDown,
     heldDominoId,
+    trayOffsetX,
   },
   ref,
 ) {
@@ -58,8 +60,8 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
   return (
     <div
       ref={ref}
-      className="relative"
-      style={{ width: dims.width, minHeight: dims.height }}
+      className="relative w-full"
+      style={{ minHeight: dims.height }}
       data-testid="tray"
     >
       {/* Placeholder slots for original positions */}
@@ -70,7 +72,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
             key={`slot-${i}`}
             className="absolute rounded-lg bg-neutral-150"
             style={{
-              left: pos.x,
+              left: pos.x + trayOffsetX,
               top: pos.y,
               width: 2 * CELL_SIZE,
               height: CELL_SIZE,

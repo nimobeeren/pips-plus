@@ -8,10 +8,17 @@ import type {
   Puzzle,
 } from "@/types";
 import { cellKey, getCoveredCells, isHorizontal } from "@/types";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { Board } from "./board";
 import { CELL_SIZE, Domino } from "./domino";
-import { Tray, initialTrayPosition } from "./tray";
+import { Tray, initialTrayPosition, trayDimensions } from "./tray";
 
 // --- State management ---
 
@@ -26,9 +33,23 @@ interface GameState {
 }
 
 type GameAction =
-  | { type: "ROTATE"; id: string; pivotFar: boolean }
+  | {
+      type: "ROTATE";
+      id: string;
+      pivotFar: boolean;
+      trayWidth?: number;
+      trayHeight?: number;
+    }
   | { type: "PLACE_ON_BOARD"; id: string; row: number; col: number }
-  | { type: "MOVE_TO_TRAY"; id: string; x: number; y: number }
+  | {
+      type: "MOVE_TO_TRAY";
+      id: string;
+      x: number;
+      y: number;
+      trayWidth?: number;
+      trayHeight?: number;
+    }
+  | { type: "OFFSET_TRAY"; dx: number }
   | { type: "PICK_UP"; id: string }
   | { type: "MOVE_CURSOR"; direction: "up" | "down" | "left" | "right" }
   | { type: "CONFIRM_PLACEMENT" }
@@ -158,6 +179,32 @@ const ROTATION_VISUAL_OFFSET: Record<Orientation, { dx: number; dy: number }> =
     270: { dx: 0, dy: -CELL_SIZE },
   };
 
+function clampTrayPosition(
+  orientation: Orientation,
+  x: number,
+  y: number,
+  trayWidth: number,
+  trayHeight: number,
+): { x: number; y: number } {
+  const isH = isHorizontal(orientation);
+  const visualWidth = isH ? 2 * CELL_SIZE : CELL_SIZE;
+  const visualHeight = isH ? CELL_SIZE : 2 * CELL_SIZE;
+  const offset = ROTATION_VISUAL_OFFSET[orientation];
+
+  const visualX = x + offset.dx;
+  const visualY = y + offset.dy;
+  const maxVisualX = Math.max(0, trayWidth - visualWidth);
+  const maxVisualY = Math.max(0, trayHeight - visualHeight);
+
+  const clampedVisualX = Math.min(Math.max(0, visualX), maxVisualX);
+  const clampedVisualY = Math.min(Math.max(0, visualY), maxVisualY);
+
+  return {
+    x: clampedVisualX - offset.dx,
+    y: clampedVisualY - offset.dy,
+  };
+}
+
 /**
  * Rotate a board domino around its pivot cell (the cell the user clicked).
  * Returns new anchor and orientation, or null if invalid.
@@ -230,6 +277,9 @@ function isClickOnFarHalf(
 function reducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case "ROTATE": {
+      const traySize = trayDimensions(state.puzzle.dominoes.length);
+      const trayWidth = action.trayWidth ?? traySize.width;
+      const trayHeight = action.trayHeight ?? traySize.height;
       const nextDominoes = state.dominoes.map((d) => {
         if (d.id !== action.id) return d;
         const nextOrientation = ((d.orientation + 90) % 360) as Orientation;
@@ -268,15 +318,24 @@ function reducer(state: GameState, action: GameAction): GameState {
         }
 
         // Tray domino: adjust position if pivoting around far half
-        if (d.location.type === "tray" && action.pivotFar) {
-          const offset = PIVOT_FAR_OFFSET[d.orientation];
+        if (d.location.type === "tray") {
+          const offset = action.pivotFar
+            ? PIVOT_FAR_OFFSET[d.orientation]
+            : { dx: 0, dy: 0 };
+          const next = clampTrayPosition(
+            nextOrientation,
+            d.location.x + offset.dx,
+            d.location.y + offset.dy,
+            trayWidth,
+            trayHeight,
+          );
           return {
             ...d,
             orientation: nextOrientation,
             location: {
               type: "tray" as const,
-              x: d.location.x + offset.dx,
-              y: d.location.y + offset.dy,
+              x: next.x,
+              y: next.y,
             },
           };
         }
@@ -330,12 +389,28 @@ function reducer(state: GameState, action: GameAction): GameState {
     }
 
     case "MOVE_TO_TRAY": {
+      const traySize = trayDimensions(state.puzzle.dominoes.length);
+      const trayWidth = action.trayWidth ?? traySize.width;
+      const trayHeight = action.trayHeight ?? traySize.height;
+      const domino = state.dominoes.find((d) => d.id === action.id);
+      if (!domino) return state;
+      const nextPos = clampTrayPosition(
+        domino.orientation,
+        action.x,
+        action.y,
+        trayWidth,
+        trayHeight,
+      );
       const nextDominoes = state.dominoes.map((d) =>
         d.id === action.id
           ? {
               ...d,
               zOrder: state.nextZOrder,
-              location: { type: "tray" as const, x: action.x, y: action.y },
+              location: {
+                type: "tray" as const,
+                x: nextPos.x,
+                y: nextPos.y,
+              },
             }
           : d,
       );
@@ -346,6 +421,22 @@ function reducer(state: GameState, action: GameAction): GameState {
         status: "playing",
         violatedRegions: [],
       };
+    }
+
+    case "OFFSET_TRAY": {
+      const nextDominoes = state.dominoes.map((d) =>
+        d.location.type === "tray"
+          ? {
+              ...d,
+              location: {
+                type: "tray" as const,
+                x: d.location.x + action.dx,
+                y: d.location.y,
+              },
+            }
+          : d,
+      );
+      return { ...state, dominoes: nextDominoes };
     }
 
     case "PICK_UP": {
@@ -509,6 +600,11 @@ interface GameProps {
 export function Game({ puzzle }: GameProps) {
   const [state, dispatch] = useReducer(reducer, puzzle, initState);
   const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
+  const [trayLayout, setTrayLayout] = useState({
+    width: 0,
+    height: 0,
+    offsetX: 0,
+  });
 
   const boardRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
@@ -523,6 +619,57 @@ export function Game({ puzzle }: GameProps) {
   const handleClear = useCallback(() => {
     dispatch({ type: "CLEAR" });
   }, []);
+
+  const computeTrayLayout = useCallback(() => {
+    const fallback = trayDimensions(puzzle.dominoes.length);
+    const trayEl = trayRef.current;
+    if (!trayEl) {
+      return { width: fallback.width, height: fallback.height, offsetX: 0 };
+    }
+    const rect = trayEl.getBoundingClientRect();
+    const offsetX = Math.max(0, (rect.width - fallback.width) / 2);
+    return { width: rect.width, height: rect.height, offsetX };
+  }, [puzzle.dominoes.length]);
+
+  const getTraySize = useCallback(() => {
+    if (trayLayout.width && trayLayout.height) {
+      return { width: trayLayout.width, height: trayLayout.height };
+    }
+    const fallback = trayDimensions(puzzle.dominoes.length);
+    return { width: fallback.width, height: fallback.height };
+  }, [puzzle.dominoes.length, trayLayout.height, trayLayout.width]);
+
+  useLayoutEffect(() => {
+    const updateLayout = () => {
+      setTrayLayout(computeTrayLayout());
+    };
+    updateLayout();
+    window.addEventListener("resize", updateLayout);
+    return () => window.removeEventListener("resize", updateLayout);
+  }, [computeTrayLayout]);
+
+  useEffect(() => {
+    if (!trayLayout.offsetX) return;
+    const trayDominoes = state.dominoes.filter(
+      (d) => d.location.type === "tray",
+    );
+    if (!trayDominoes.length) return;
+
+    let allInitial = true;
+    for (const d of trayDominoes) {
+      if (d.location.type !== "tray") continue;
+      const index = puzzle.dominoes.findIndex((pd) => pd.id === d.id);
+      if (index < 0) continue;
+      const pos = initialTrayPosition(index);
+      if (d.location.x !== pos.x || d.location.y !== pos.y) {
+        allInitial = false;
+        break;
+      }
+    }
+    if (allInitial) {
+      dispatch({ type: "OFFSET_TRAY", dx: trayLayout.offsetX });
+    }
+  }, [puzzle.dominoes, state.dominoes, trayLayout.offsetX]);
 
   // Pointer drag handlers
   const handlePointerDown = useCallback(
@@ -579,10 +726,13 @@ export function Game({ puzzle }: GameProps) {
 
       // If barely moved, treat as click (rotate around clicked half)
       if (distance < 5) {
+        const traySize = getTraySize();
         dispatch({
           type: "ROTATE",
           id: dragInfo.dominoId,
           pivotFar: dragInfo.clickedFar,
+          trayWidth: traySize.width,
+          trayHeight: traySize.height,
         });
         setDragInfo(null);
         return;
@@ -693,11 +843,14 @@ export function Game({ puzzle }: GameProps) {
           // Convert visual position to wrapper position, compensating for
           // the CSS rotation offset so the domino appears where it was dropped
           const offset = ROTATION_VISUAL_OFFSET[domino?.orientation ?? 0];
+          const traySize = getTraySize();
           dispatch({
             type: "MOVE_TO_TRAY",
             id: dragInfo.dominoId,
             x: visualX - offset.dx,
             y: visualY - offset.dy,
+            trayWidth: traySize.width,
+            trayHeight: traySize.height,
           });
           setDragInfo(null);
           return;
@@ -706,11 +859,14 @@ export function Game({ puzzle }: GameProps) {
 
       // Drop outside both: snap back to origin
       if (dragInfo.originLocation.type === "tray") {
+        const traySize = getTraySize();
         dispatch({
           type: "MOVE_TO_TRAY",
           id: dragInfo.dominoId,
           x: dragInfo.originLocation.x,
           y: dragInfo.originLocation.y,
+          trayWidth: traySize.width,
+          trayHeight: traySize.height,
         });
       } else if (dragInfo.originLocation.type === "board") {
         dispatch({
@@ -729,7 +885,7 @@ export function Game({ puzzle }: GameProps) {
       window.removeEventListener("pointermove", handlePointerMove);
       window.removeEventListener("pointerup", handlePointerUp);
     };
-  }, [dragInfo, puzzle, state]);
+  }, [dragInfo, getTraySize, puzzle, state]);
 
   // Keyboard handler
   const handleDominoKeyDown = useCallback(
@@ -740,7 +896,16 @@ export function Game({ puzzle }: GameProps) {
         case "r":
         case "R":
           e.preventDefault();
-          dispatch({ type: "ROTATE", id: dominoId, pivotFar: false });
+          {
+            const traySize = getTraySize();
+            dispatch({
+              type: "ROTATE",
+              id: dominoId,
+              pivotFar: false,
+              trayWidth: traySize.width,
+              trayHeight: traySize.height,
+            });
+          }
           break;
         case "Enter":
           e.preventDefault();
@@ -772,10 +937,10 @@ export function Game({ puzzle }: GameProps) {
           break;
       }
     },
-    [state.heldDominoId, state.status],
+    [getTraySize, state.heldDominoId, state.status],
   );
 
-  const handleDominoClick = useCallback((_dominoId: string) => {}, []);
+  const handleDominoClick = useCallback(() => {}, []);
 
   // Ghost rendering: position using the grab offset so the domino stays under the pointer
   const draggingDomino = dragInfo
@@ -859,6 +1024,7 @@ export function Game({ puzzle }: GameProps) {
           onDominoClick={handleDominoClick}
           onDominoKeyDown={handleDominoKeyDown}
           heldDominoId={state.heldDominoId}
+          trayOffsetX={trayLayout.offsetX}
         />
       </div>
 

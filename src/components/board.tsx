@@ -129,6 +129,9 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   const boardWidth = (maxCol - minCol + 1) * CELL_SIZE;
   const boardHeight = (maxRow - minRow + 1) * CELL_SIZE;
 
+  const cellSet = new Set(puzzle.cells.map(([r, c]) => cellKey(r, c)));
+  const halfInset = CELL_INSET / 2;
+
   // Build per-region boundary info
   const regionBoundaryInfos = new Map<
     string,
@@ -162,18 +165,29 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       data-testid="board"
     >
       {/* Layer 0: Base cell backgrounds */}
-      {puzzle.cells.map(([r, c]) => (
-        <div
-          key={`base-${r}-${c}`}
-          className="absolute rounded-lg bg-neutral-150"
-          style={{
-            left: (c - minCol) * CELL_SIZE + CELL_INSET,
-            top: (r - minRow) * CELL_SIZE + CELL_INSET,
-            width: CELL_SIZE - 2 * CELL_INSET,
-            height: CELL_SIZE - 2 * CELL_INSET,
-          }}
-        />
-      ))}
+      {puzzle.cells.map(([r, c]) => {
+        const hasTop = cellSet.has(cellKey(r - 1, c));
+        const hasBottom = cellSet.has(cellKey(r + 1, c));
+        const hasLeft = cellSet.has(cellKey(r, c - 1));
+        const hasRight = cellSet.has(cellKey(r, c + 1));
+        const insetTop = hasTop ? halfInset : CELL_INSET;
+        const insetBottom = hasBottom ? halfInset : CELL_INSET;
+        const insetLeft = hasLeft ? halfInset : CELL_INSET;
+        const insetRight = hasRight ? halfInset : CELL_INSET;
+
+        return (
+          <div
+            key={`base-${r}-${c}`}
+            className="absolute rounded-lg bg-neutral-150"
+            style={{
+              left: (c - minCol) * CELL_SIZE + insetLeft,
+              top: (r - minRow) * CELL_SIZE + insetTop,
+              width: CELL_SIZE - insetLeft - insetRight,
+              height: CELL_SIZE - insetTop - insetBottom,
+            }}
+          />
+        );
+      })}
 
       {/* Layer 1: Cell backgrounds with region colors and smart rounding */}
       {puzzle.cells.map(([r, c]) => {
