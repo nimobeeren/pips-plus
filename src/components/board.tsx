@@ -92,7 +92,7 @@ function BoardGrid({ cells, layout }: BoardGridProps) {
       {cells.map(([r, c]) => (
         <div
           key={`cell-${r}-${c}`}
-          className="absolute bg-neutral-150"
+          className="absolute bg-neutral-150 rounded-lg"
           style={{
             left: (c - layout.minCol) * CELL_SIZE + CELL_INSET,
             top: (r - layout.minRow) * CELL_SIZE + CELL_INSET,

@@ -44,7 +44,7 @@ export function BoardRegionFillOverlay({
       height={layout.height}
       viewBox={`0 0 ${layout.width} ${layout.height}`}
       preserveAspectRatio="xMinYMin meet"
-      style={{ zIndex: 10 }}
+      style={{ zIndex: 25 }}
       aria-hidden="true"
     >
       {regions.map((region) => {
@@ -136,7 +136,7 @@ export function BoardRegionLabels({
             }}
           >
             <div
-              className="absolute h-full w-full shadow-sm"
+              className="absolute h-full w-full shadow-sm rounded-sm"
               style={{
                 backgroundColor: isViolated ? "#ef4444" : region.color,
                 opacity: 1,
