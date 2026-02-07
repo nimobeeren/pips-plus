@@ -1,9 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Game } from "@/components/game";
+import { starterPuzzle } from "@/puzzles";
 
 function App() {
   return (
-    <div className="flex min-h-svh items-center justify-center">
-      <Button>Click me</Button>
+    <div className="min-h-svh bg-neutral-50">
+      <Game puzzle={starterPuzzle} />
     </div>
   );
 }

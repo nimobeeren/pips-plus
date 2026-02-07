@@ -1,0 +1,4 @@
+- constraint types
+  - product
+  - mirror (=n)
+- dropping in tray causes jump
