@@ -1,103 +1,13 @@
-import type { Constraint, DominoState, Orientation, Puzzle } from "@/types";
-import { cellKey, isHorizontal } from "@/types";
+import type { DominoState, Orientation, Puzzle } from "@/types";
+import { isHorizontal } from "@/types";
 import { forwardRef } from "react";
+import {
+  BoardRegionBorderOverlay,
+  BoardRegionFillOverlay,
+  BoardRegionLabels,
+  type BoardLayout,
+} from "./board-regions.tsx";
 import { CELL_INSET, CELL_SIZE, Domino } from "./domino";
-
-function constraintLabel(constraint: Constraint): string {
-  switch (constraint.kind) {
-    case "none":
-      return "";
-    case "equal":
-      return "=";
-    case "not-equal":
-      return "≠";
-    case "sum":
-      return String(constraint.target);
-    case "greater":
-      return `>${constraint.target}`;
-    case "less":
-      return `<${constraint.target}`;
-  }
-}
-
-/** Find the bottom-right cell of a region for label placement. */
-function getLabelCell(cells: [number, number][]): [number, number] {
-  let best = cells[0];
-  for (const cell of cells) {
-    if (cell[0] > best[0] || (cell[0] === best[0] && cell[1] > best[1])) {
-      best = cell;
-    }
-  }
-  return best;
-}
-
-/** Compute which edges are on the boundary for each cell in a region. */
-function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
-  string,
-  {
-    borderTop: boolean;
-    borderRight: boolean;
-    borderBottom: boolean;
-    borderLeft: boolean;
-  }
-> {
-  const cellSet = new Set(regionCells.map(([r, c]) => cellKey(r, c)));
-  const info = new Map<
-    string,
-    {
-      borderTop: boolean;
-      borderRight: boolean;
-      borderBottom: boolean;
-      borderLeft: boolean;
-    }
-  >();
-
-  for (const [r, c] of regionCells) {
-    const hasTop = cellSet.has(cellKey(r - 1, c));
-    const hasBottom = cellSet.has(cellKey(r + 1, c));
-    const hasLeft = cellSet.has(cellKey(r, c - 1));
-    const hasRight = cellSet.has(cellKey(r, c + 1));
-
-    // Border on edges where there's no adjacent cell in the same region
-    const borderTop = !hasTop;
-    const borderRight = !hasRight;
-    const borderBottom = !hasBottom;
-    const borderLeft = !hasLeft;
-
-    info.set(cellKey(r, c), {
-      borderTop,
-      borderRight,
-      borderBottom,
-      borderLeft,
-    });
-  }
-  return info;
-}
-
-function getRegionCellRect(
-  r: number,
-  c: number,
-  minRow: number,
-  minCol: number,
-  boundary: {
-    borderTop: boolean;
-    borderRight: boolean;
-    borderBottom: boolean;
-    borderLeft: boolean;
-  },
-): { left: number; top: number; width: number; height: number } {
-  const insetLeft = boundary.borderLeft ? CELL_INSET : 0;
-  const insetRight = boundary.borderRight ? CELL_INSET : 0;
-  const insetTop = boundary.borderTop ? CELL_INSET : 0;
-  const insetBottom = boundary.borderBottom ? CELL_INSET : 0;
-
-  return {
-    left: (c - minCol) * CELL_SIZE + insetLeft,
-    top: (r - minRow) * CELL_SIZE + insetTop,
-    width: CELL_SIZE - insetLeft - insetRight,
-    height: CELL_SIZE - insetTop - insetBottom,
-  };
-}
 
 interface BoardProps {
   puzzle: Puzzle;
@@ -125,35 +35,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   },
   ref,
 ) {
-  const minRow = Math.min(...puzzle.cells.map(([r]) => r));
-  const maxRow = Math.max(...puzzle.cells.map(([r]) => r));
-  const minCol = Math.min(...puzzle.cells.map(([, c]) => c));
-  const maxCol = Math.max(...puzzle.cells.map(([, c]) => c));
-
-  const boardWidth = (maxCol - minCol + 1) * CELL_SIZE;
-  const boardHeight = (maxRow - minRow + 1) * CELL_SIZE;
-
-  // Build per-region boundary info
-  const regionBoundaryInfos = new Map<
-    string,
-    ReturnType<typeof computeCellBoundaryInfo>
-  >();
-  for (const region of puzzle.regions) {
-    regionBoundaryInfos.set(region.id, computeCellBoundaryInfo(region.cells));
-  }
-
-  // Map cells to their region
-  const cellRegionMap = new Map<string, { color: string; regionId: string }>();
-  for (const region of puzzle.regions) {
-    for (const [r, c] of region.cells) {
-      cellRegionMap.set(cellKey(r, c), {
-        color: region.color,
-        regionId: region.id,
-      });
-    }
-  }
-
-  const violatedSet = new Set(violatedRegions);
+  const layout = getBoardLayout(puzzle.cells);
   const boardDominoes = dominoes.filter(
     (d) => d.location.type === "board" && d.id !== draggedDominoId,
   );
@@ -162,74 +44,103 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
     <div
       ref={ref}
       className="relative"
-      style={{ width: boardWidth, height: boardHeight }}
+      style={{ width: layout.width, height: layout.height }}
       data-testid="board"
     >
-      {/* Layer 0: Base cell backgrounds */}
-      {puzzle.cells.map(([r, c]) => (
+      <BoardGrid cells={puzzle.cells} layout={layout} />
+      <BoardRegionFillOverlay
+        regions={puzzle.regions}
+        layout={layout}
+        cellSize={CELL_SIZE}
+        cellInset={CELL_INSET}
+      />
+      <BoardDominoes
+        dominoes={boardDominoes}
+        layout={layout}
+        heldDominoId={heldDominoId}
+        onDominoPointerDown={onDominoPointerDown}
+        onDominoClick={onDominoClick}
+        onDominoKeyDown={onDominoKeyDown}
+      />
+      <BoardRegionBorderOverlay
+        regions={puzzle.regions}
+        layout={layout}
+        cellSize={CELL_SIZE}
+        cellInset={CELL_INSET}
+      />
+      <BoardCursor cursor={keyboardCursor} layout={layout} />
+      <BoardRegionLabels
+        regions={puzzle.regions}
+        violatedRegions={violatedRegions}
+        layout={layout}
+        cellSize={CELL_SIZE}
+      />
+    </div>
+  );
+});
+
+interface BoardGridProps {
+  cells: [number, number][];
+  layout: BoardLayout;
+}
+
+function BoardGrid({ cells, layout }: BoardGridProps) {
+  const cellSize = CELL_SIZE - CELL_INSET * 2;
+
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {cells.map(([r, c]) => (
         <div
-          key={`base-${r}-${c}`}
+          key={`cell-${r}-${c}`}
           className="absolute bg-neutral-150"
           style={{
-            left: (c - minCol) * CELL_SIZE + CELL_INSET,
-            top: (r - minRow) * CELL_SIZE + CELL_INSET,
-            width: CELL_SIZE - 2 * CELL_INSET,
-            height: CELL_SIZE - 2 * CELL_INSET,
+            left: (c - layout.minCol) * CELL_SIZE + CELL_INSET,
+            top: (r - layout.minRow) * CELL_SIZE + CELL_INSET,
+            width: cellSize,
+            height: cellSize,
           }}
+          data-testid={`cell-${r}-${c}`}
         />
       ))}
+    </div>
+  );
+}
 
-      {/* Layer 1: Cell backgrounds with region colors and smart rounding */}
-      {puzzle.cells.map(([r, c]) => {
-        const info = cellRegionMap.get(cellKey(r, c));
-        if (!info) return null;
-        const boundary = regionBoundaryInfos
-          .get(info.regionId)
-          ?.get(cellKey(r, c));
-        const rect = boundary
-          ? getRegionCellRect(r, c, minRow, minCol, boundary)
-          : {
-              left: (c - minCol) * CELL_SIZE + CELL_INSET,
-              top: (r - minRow) * CELL_SIZE + CELL_INSET,
-              width: CELL_SIZE - 2 * CELL_INSET,
-              height: CELL_SIZE - 2 * CELL_INSET,
-            };
+interface BoardDominoesProps {
+  dominoes: DominoState[];
+  layout: BoardLayout;
+  heldDominoId: string | null;
+  onDominoPointerDown: (id: string, e: React.PointerEvent) => void;
+  onDominoClick: (id: string) => void;
+  onDominoKeyDown: (id: string, e: React.KeyboardEvent) => void;
+}
 
-        return (
-          <div
-            key={`cell-${r}-${c}`}
-            className="absolute"
-            style={{
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-              backgroundColor: info.color,
-              opacity: 0.35,
-              zIndex: 1,
-            }}
-            data-testid={`cell-${r}-${c}`}
-          />
-        );
-      })}
-
-      {/* Layer 2: Placed dominoes */}
-      {boardDominoes.map((d) => {
+function BoardDominoes({
+  dominoes,
+  layout,
+  heldDominoId,
+  onDominoPointerDown,
+  onDominoClick,
+  onDominoKeyDown,
+}: BoardDominoesProps) {
+  return (
+    <div className="absolute inset-0">
+      {dominoes.map((d) => {
         if (d.location.type !== "board") return null;
         const { row, col } = d.location;
         const wrapperStyle = getBoardDominoWrapperStyle(
           row,
           col,
           d.orientation,
-          minRow,
-          minCol,
+          layout.minRow,
+          layout.minCol,
         );
 
         return (
           <div
             key={d.id}
             className="absolute"
-            style={{ ...wrapperStyle, zIndex: 10 }}
+            style={{ ...wrapperStyle, zIndex: 20 }}
           >
             <Domino
               id={d.id}
@@ -244,138 +155,55 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
           </div>
         );
       })}
-
-      {/* Layer 3: Semi-transparent region overlay on top of dominoes */}
-      {puzzle.cells.map(([r, c]) => {
-        const info = cellRegionMap.get(cellKey(r, c));
-        if (!info) return null;
-        const boundary = regionBoundaryInfos
-          .get(info.regionId)
-          ?.get(cellKey(r, c));
-        const rect = boundary
-          ? getRegionCellRect(r, c, minRow, minCol, boundary)
-          : {
-              left: (c - minCol) * CELL_SIZE + CELL_INSET,
-              top: (r - minRow) * CELL_SIZE + CELL_INSET,
-              width: CELL_SIZE - 2 * CELL_INSET,
-              height: CELL_SIZE - 2 * CELL_INSET,
-            };
-
-        return (
-          <div
-            key={`overlay-${r}-${c}`}
-            className="pointer-events-none absolute"
-            style={{
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-              backgroundColor: info.color,
-              opacity: 0.15,
-              zIndex: 20,
-            }}
-          />
-        );
-      })}
-
-      {/* Layer 4: Region boundary borders (on top of dominoes) */}
-      {puzzle.regions.map((region) => {
-        const boundaryInfo = regionBoundaryInfos.get(region.id);
-        if (!boundaryInfo) return null;
-
-        return region.cells.map(([r, c]) => {
-          const boundary = boundaryInfo.get(cellKey(r, c));
-          if (!boundary) return null;
-
-          const hasBorder =
-            boundary.borderTop ||
-            boundary.borderRight ||
-            boundary.borderBottom ||
-            boundary.borderLeft;
-          if (!hasBorder) return null;
-
-          const rect = getRegionCellRect(r, c, minRow, minCol, boundary);
-
-          return (
-            <div
-              key={`rborder-${region.id}-${r}-${c}`}
-              className="pointer-events-none absolute"
-              style={{
-                left: rect.left,
-                top: rect.top,
-                width: rect.width,
-                height: rect.height,
-                borderTop: boundary.borderTop
-                  ? `2px dashed ${region.color}`
-                  : "none",
-                borderRight: boundary.borderRight
-                  ? `2px dashed ${region.color}`
-                  : "none",
-                borderBottom: boundary.borderBottom
-                  ? `2px dashed ${region.color}`
-                  : "none",
-                borderLeft: boundary.borderLeft
-                  ? `2px dashed ${region.color}`
-                  : "none",
-                opacity: 0.7,
-                zIndex: 21,
-              }}
-            />
-          );
-        });
-      })}
-
-      {/* Layer 5: Keyboard cursor */}
-      {keyboardCursor && (
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            left: (keyboardCursor[1] - minCol) * CELL_SIZE - 2,
-            top: (keyboardCursor[0] - minRow) * CELL_SIZE - 2,
-            width: CELL_SIZE + 4,
-            height: CELL_SIZE + 4,
-            outline: "3px solid #3b82f6",
-            zIndex: 25,
-          }}
-        />
-      )}
-
-      {/* Layer 6: Region constraint labels (highest) */}
-      {puzzle.regions.map((region) => {
-        const label = constraintLabel(region.constraint);
-        if (!label) return null;
-
-        const isViolated = violatedSet.has(region.id);
-        const [lr, lc] = getLabelCell(region.cells);
-        return (
-          <div
-            key={`label-${region.id}`}
-            className="absolute flex items-center justify-center rotate-45"
-            style={{
-              left: (lc - minCol + 1) * CELL_SIZE - 16,
-              top: (lr - minRow + 1) * CELL_SIZE - 16,
-              width: 28,
-              height: 28,
-              zIndex: 30,
-            }}
-          >
-            <div
-              className="absolute h-full w-full shadow-sm"
-              style={{
-                backgroundColor: isViolated ? "#ef4444" : region.color,
-                opacity: 1,
-                filter: isViolated ? "none" : "brightness(0.7)",
-              }}
-            />
-            <span className="relative z-10 -rotate-45 text-xs font-bold text-white">
-              {label}
-            </span>
-          </div>
-        );
-      })}
     </div>
   );
-});
+}
+
+interface BoardCursorProps {
+  cursor: [number, number] | null;
+  layout: BoardLayout;
+}
+
+function BoardCursor({ cursor, layout }: BoardCursorProps) {
+  if (!cursor) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute"
+      style={{
+        left: (cursor[1] - layout.minCol) * CELL_SIZE - 2,
+        top: (cursor[0] - layout.minRow) * CELL_SIZE - 2,
+        width: CELL_SIZE + 4,
+        height: CELL_SIZE + 4,
+        outline: "3px solid #3b82f6",
+        zIndex: 50,
+      }}
+    />
+  );
+}
+
+function getBoardLayout(cells: [number, number][]): BoardLayout {
+  if (!cells.length) {
+    throw new Error("Board requires at least one cell.");
+  }
+
+  const minRow = Math.min(...cells.map(([r]) => r));
+  const maxRow = Math.max(...cells.map(([r]) => r));
+  const minCol = Math.min(...cells.map(([, c]) => c));
+  const maxCol = Math.max(...cells.map(([, c]) => c));
+
+  const rows = maxRow - minRow + 1;
+  const cols = maxCol - minCol + 1;
+
+  return {
+    minRow,
+    minCol,
+    rows,
+    cols,
+    width: cols * CELL_SIZE,
+    height: rows * CELL_SIZE,
+  };
+}
 
 function getBoardDominoWrapperStyle(
   row: number,
