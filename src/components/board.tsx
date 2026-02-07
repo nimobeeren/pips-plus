@@ -1,7 +1,7 @@
 import type { Constraint, DominoState, Orientation, Puzzle } from "@/types";
 import { cellKey, isHorizontal } from "@/types";
 import { forwardRef } from "react";
-import { CELL_SIZE, Domino } from "./domino";
+import { CELL_INSET, CELL_SIZE, Domino } from "./domino";
 
 function constraintLabel(constraint: Constraint): string {
   switch (constraint.kind) {
@@ -93,7 +93,30 @@ function computeCellBoundaryInfo(regionCells: [number, number][]): Map<
 }
 
 const BORDER_RADIUS = 10;
-const CELL_INSET = 3;
+function getRegionCellRect(
+  r: number,
+  c: number,
+  minRow: number,
+  minCol: number,
+  boundary: {
+    borderTop: boolean;
+    borderRight: boolean;
+    borderBottom: boolean;
+    borderLeft: boolean;
+  },
+): { left: number; top: number; width: number; height: number } {
+  const insetLeft = boundary.borderLeft ? CELL_INSET : 0;
+  const insetRight = boundary.borderRight ? CELL_INSET : 0;
+  const insetTop = boundary.borderTop ? CELL_INSET : 0;
+  const insetBottom = boundary.borderBottom ? CELL_INSET : 0;
+
+  return {
+    left: (c - minCol) * CELL_SIZE + insetLeft,
+    top: (r - minRow) * CELL_SIZE + insetTop,
+    width: CELL_SIZE - insetLeft - insetRight,
+    height: CELL_SIZE - insetTop - insetBottom,
+  };
+}
 
 interface BoardProps {
   puzzle: Puzzle;
@@ -129,9 +152,6 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   const boardWidth = (maxCol - minCol + 1) * CELL_SIZE;
   const boardHeight = (maxRow - minRow + 1) * CELL_SIZE;
 
-  const cellSet = new Set(puzzle.cells.map(([r, c]) => cellKey(r, c)));
-  const halfInset = CELL_INSET / 2;
-
   // Build per-region boundary info
   const regionBoundaryInfos = new Map<
     string,
@@ -165,29 +185,18 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
       data-testid="board"
     >
       {/* Layer 0: Base cell backgrounds */}
-      {puzzle.cells.map(([r, c]) => {
-        const hasTop = cellSet.has(cellKey(r - 1, c));
-        const hasBottom = cellSet.has(cellKey(r + 1, c));
-        const hasLeft = cellSet.has(cellKey(r, c - 1));
-        const hasRight = cellSet.has(cellKey(r, c + 1));
-        const insetTop = hasTop ? halfInset : CELL_INSET;
-        const insetBottom = hasBottom ? halfInset : CELL_INSET;
-        const insetLeft = hasLeft ? halfInset : CELL_INSET;
-        const insetRight = hasRight ? halfInset : CELL_INSET;
-
-        return (
-          <div
-            key={`base-${r}-${c}`}
-            className="absolute rounded-lg bg-neutral-150"
-            style={{
-              left: (c - minCol) * CELL_SIZE + insetLeft,
-              top: (r - minRow) * CELL_SIZE + insetTop,
-              width: CELL_SIZE - insetLeft - insetRight,
-              height: CELL_SIZE - insetTop - insetBottom,
-            }}
-          />
-        );
-      })}
+      {puzzle.cells.map(([r, c]) => (
+        <div
+          key={`base-${r}-${c}`}
+          className="absolute rounded-lg bg-neutral-150"
+          style={{
+            left: (c - minCol) * CELL_SIZE + CELL_INSET,
+            top: (r - minRow) * CELL_SIZE + CELL_INSET,
+            width: CELL_SIZE - 2 * CELL_INSET,
+            height: CELL_SIZE - 2 * CELL_INSET,
+          }}
+        />
+      ))}
 
       {/* Layer 1: Cell backgrounds with region colors and smart rounding */}
       {puzzle.cells.map(([r, c]) => {
@@ -199,16 +208,24 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         const br = boundary
           ? `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`
           : "0px";
+        const rect = boundary
+          ? getRegionCellRect(r, c, minRow, minCol, boundary)
+          : {
+              left: (c - minCol) * CELL_SIZE + CELL_INSET,
+              top: (r - minRow) * CELL_SIZE + CELL_INSET,
+              width: CELL_SIZE - 2 * CELL_INSET,
+              height: CELL_SIZE - 2 * CELL_INSET,
+            };
 
         return (
           <div
             key={`cell-${r}-${c}`}
             className="absolute"
             style={{
-              left: (c - minCol) * CELL_SIZE,
-              top: (r - minRow) * CELL_SIZE,
-              width: CELL_SIZE,
-              height: CELL_SIZE,
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
               backgroundColor: info.color,
               opacity: 0.35,
               borderRadius: br,
@@ -261,16 +278,24 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         const br = boundary
           ? `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`
           : "0px";
+        const rect = boundary
+          ? getRegionCellRect(r, c, minRow, minCol, boundary)
+          : {
+              left: (c - minCol) * CELL_SIZE + CELL_INSET,
+              top: (r - minRow) * CELL_SIZE + CELL_INSET,
+              width: CELL_SIZE - 2 * CELL_INSET,
+              height: CELL_SIZE - 2 * CELL_INSET,
+            };
 
         return (
           <div
             key={`overlay-${r}-${c}`}
             className="pointer-events-none absolute"
             style={{
-              left: (c - minCol) * CELL_SIZE,
-              top: (r - minRow) * CELL_SIZE,
-              width: CELL_SIZE,
-              height: CELL_SIZE,
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
               backgroundColor: info.color,
               opacity: 0.15,
               borderRadius: br,
@@ -297,16 +322,17 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
           if (!hasBorder) return null;
 
           const br = `${boundary.roundTL ? BORDER_RADIUS : 0}px ${boundary.roundTR ? BORDER_RADIUS : 0}px ${boundary.roundBR ? BORDER_RADIUS : 0}px ${boundary.roundBL ? BORDER_RADIUS : 0}px`;
+          const rect = getRegionCellRect(r, c, minRow, minCol, boundary);
 
           return (
             <div
               key={`rborder-${region.id}-${r}-${c}`}
               className="pointer-events-none absolute"
               style={{
-                left: (c - minCol) * CELL_SIZE,
-                top: (r - minRow) * CELL_SIZE,
-                width: CELL_SIZE,
-                height: CELL_SIZE,
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
                 borderTop: boundary.borderTop
                   ? `2px dashed ${region.color}`
                   : "none",
@@ -353,7 +379,7 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         return (
           <div
             key={`label-${region.id}`}
-            className="absolute flex items-center justify-center"
+            className="absolute flex items-center justify-center rotate-45"
             style={{
               left: (lc - minCol + 1) * CELL_SIZE - 16,
               top: (lr - minRow + 1) * CELL_SIZE - 16,
@@ -363,14 +389,16 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
             }}
           >
             <div
-              className="flex h-full w-full rotate-45 items-center justify-center rounded-sm text-white shadow-sm"
+              className="absolute h-full w-full rounded-sm shadow-sm"
               style={{
                 backgroundColor: isViolated ? "#ef4444" : region.color,
+                opacity: 1,
                 filter: isViolated ? "none" : "brightness(0.7)",
               }}
-            >
-              <span className="-rotate-45 text-xs font-bold">{label}</span>
-            </div>
+            />
+            <span className="relative z-10 -rotate-45 text-xs font-bold text-white">
+              {label}
+            </span>
           </div>
         );
       })}
@@ -386,8 +414,8 @@ function getBoardDominoWrapperStyle(
   minCol: number,
 ): React.CSSProperties {
   const cs = CELL_SIZE;
-  const baseLeft = (col - minCol) * cs;
-  const baseTop = (row - minRow) * cs;
+  const baseLeft = (col - minCol) * cs + CELL_INSET;
+  const baseTop = (row - minRow) * cs + CELL_INSET;
 
   let left = baseLeft;
   let top = baseTop;
@@ -396,10 +424,10 @@ function getBoardDominoWrapperStyle(
     // No offset needed for 90° (verified via rotation math).
     // For 270°, shift down by cs to compensate for rotation around (cs/2, cs/2).
     if (orientation === 270) {
-      top = baseTop + cs;
+      top = baseTop + CELL_SIZE;
     }
   } else if (orientation === 180) {
-    left = baseLeft + cs;
+    left = baseLeft + CELL_SIZE;
   }
 
   return { left, top };

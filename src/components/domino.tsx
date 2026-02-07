@@ -4,6 +4,10 @@ import { isHorizontal } from "@/types";
 import { PipDots } from "./pip-dots";
 
 export const CELL_SIZE = 64;
+export const CELL_INSET = 4;
+export const DOMINO_SIZE = CELL_SIZE - 2 * CELL_INSET;
+export const DOMINO_GAP = CELL_INSET * 2;
+export const DOMINO_SPAN = 2 * DOMINO_SIZE + DOMINO_GAP;
 
 interface DominoProps {
   id: string;
@@ -52,8 +56,8 @@ export function Domino({
           isHeld && "ring-3 ring-blue-500 shadow-lg -translate-y-1",
         )}
         style={{
-          width: horizontal ? 2 * CELL_SIZE : CELL_SIZE,
-          height: horizontal ? CELL_SIZE : 2 * CELL_SIZE,
+          width: horizontal ? DOMINO_SPAN : DOMINO_SIZE,
+          height: horizontal ? DOMINO_SIZE : DOMINO_SPAN,
           flexDirection: horizontal ? "row" : "column",
           ...style,
         }}
@@ -71,15 +75,24 @@ export function Domino({
               transform: pipRotation ? `rotate(${pipRotation}deg)` : undefined,
             }}
           >
-            <PipDots value={displayValues[0]} size={CELL_SIZE - 8} />
+            <PipDots value={displayValues[0]} size={DOMINO_SIZE - 8} />
           </div>
         </div>
         <div
-          className={cn(
-            "bg-neutral-300",
-            horizontal ? "w-px self-stretch" : "h-px self-stretch",
-          )}
-        />
+          className="flex items-center justify-center"
+          style={
+            horizontal
+              ? { width: DOMINO_GAP }
+              : { height: DOMINO_GAP, width: "100%" }
+          }
+        >
+          <div
+            className={cn(
+              "bg-neutral-300",
+              horizontal ? "h-full w-px" : "w-full h-px",
+            )}
+          />
+        </div>
         <div className="flex flex-1 items-center justify-center p-1">
           <div
             className="h-full w-full"
@@ -87,7 +100,7 @@ export function Domino({
               transform: pipRotation ? `rotate(${pipRotation}deg)` : undefined,
             }}
           >
-            <PipDots value={displayValues[1]} size={CELL_SIZE - 8} />
+            <PipDots value={displayValues[1]} size={DOMINO_SIZE - 8} />
           </div>
         </div>
       </div>
@@ -104,10 +117,10 @@ export function Domino({
         "transition-transform duration-150 ease-in-out",
       )}
       style={{
-        width: 2 * CELL_SIZE,
-        height: CELL_SIZE,
+        width: DOMINO_SPAN,
+        height: DOMINO_SIZE,
         transform: `rotate(${orientation}deg)`,
-        transformOrigin: `${CELL_SIZE / 2}px ${CELL_SIZE / 2}px`,
+        transformOrigin: `${DOMINO_SIZE / 2}px ${DOMINO_SIZE / 2}px`,
         ...style,
       }}
       tabIndex={tabIndex}
@@ -118,11 +131,16 @@ export function Domino({
       aria-label={`Domino ${values[0]}-${values[1]}`}
     >
       <div className="flex flex-1 items-center justify-center p-1">
-        <PipDots value={values[0]} size={CELL_SIZE - 8} />
+        <PipDots value={values[0]} size={DOMINO_SIZE - 8} />
       </div>
-      <div className="w-px self-stretch bg-neutral-300" />
+      <div
+        className="flex items-center justify-center"
+        style={{ width: DOMINO_GAP }}
+      >
+        <div className="h-full w-px bg-neutral-300" />
+      </div>
       <div className="flex flex-1 items-center justify-center p-1">
-        <PipDots value={values[1]} size={CELL_SIZE - 8} />
+        <PipDots value={values[1]} size={DOMINO_SIZE - 8} />
       </div>
     </div>
   );

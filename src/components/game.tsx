@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 import { Board } from "./board";
-import { CELL_SIZE, Domino } from "./domino";
+import { CELL_SIZE, DOMINO_SIZE, DOMINO_SPAN, Domino } from "./domino";
 import { Tray, initialTrayPosition, trayDimensions } from "./tray";
 
 // --- State management ---
@@ -168,7 +168,7 @@ const PIVOT_FAR_OFFSET: Record<Orientation, { dx: number; dy: number }> = {
 
 /**
  * Visual bounding box offset relative to the wrapper position for CSS-rotated dominoes.
- * The Domino component uses transformOrigin at (CELL_SIZE/2, CELL_SIZE/2) rather than
+ * The Domino component uses transformOrigin at (DOMINO_SIZE/2, DOMINO_SIZE/2) rather than
  * the center, so the visual box shifts for some orientations.
  */
 const ROTATION_VISUAL_OFFSET: Record<Orientation, { dx: number; dy: number }> =
@@ -187,8 +187,8 @@ function clampTrayPosition(
   trayHeight: number,
 ): { x: number; y: number } {
   const isH = isHorizontal(orientation);
-  const visualWidth = isH ? 2 * CELL_SIZE : CELL_SIZE;
-  const visualHeight = isH ? CELL_SIZE : 2 * CELL_SIZE;
+  const visualWidth = isH ? DOMINO_SPAN : DOMINO_SIZE;
+  const visualHeight = isH ? DOMINO_SIZE : DOMINO_SPAN;
   const offset = ROTATION_VISUAL_OFFSET[orientation];
 
   const visualX = x + offset.dx;

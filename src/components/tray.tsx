@@ -1,6 +1,6 @@
 import type { DominoState, Puzzle } from "@/types";
 import { forwardRef } from "react";
-import { CELL_SIZE, Domino } from "./domino";
+import { DOMINO_SIZE, DOMINO_SPAN, Domino } from "./domino";
 
 export const TRAY_COLS = 3;
 export const TRAY_GAP = 24;
@@ -8,22 +8,22 @@ export const TRAY_PADDING = 48;
 
 /** Compute initial tray position for a domino at the given index. */
 export function initialTrayPosition(index: number): { x: number; y: number } {
-  const dominoWidth = 2 * CELL_SIZE;
+  const dominoWidth = DOMINO_SPAN;
   return {
     x: TRAY_PADDING + (index % TRAY_COLS) * (dominoWidth + TRAY_GAP),
-    y: TRAY_PADDING + Math.floor(index / TRAY_COLS) * (CELL_SIZE + TRAY_GAP),
+    y: TRAY_PADDING + Math.floor(index / TRAY_COLS) * (DOMINO_SIZE + TRAY_GAP),
   };
 }
 
 /** Compute tray dimensions based on the number of domino slots. */
 export function trayDimensions(dominoCount: number) {
-  const dominoWidth = 2 * CELL_SIZE;
+  const dominoWidth = DOMINO_SPAN;
   const rows = Math.ceil(dominoCount / TRAY_COLS);
   return {
     width:
       TRAY_PADDING * 2 + TRAY_COLS * dominoWidth + (TRAY_COLS - 1) * TRAY_GAP,
     height:
-      TRAY_PADDING * 2 + rows * CELL_SIZE + Math.max(0, rows - 1) * TRAY_GAP,
+      TRAY_PADDING * 2 + rows * DOMINO_SIZE + Math.max(0, rows - 1) * TRAY_GAP,
   };
 }
 
@@ -74,8 +74,8 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
             style={{
               left: pos.x + trayOffsetX,
               top: pos.y,
-              width: 2 * CELL_SIZE,
-              height: CELL_SIZE,
+              width: DOMINO_SPAN,
+              height: DOMINO_SIZE,
             }}
           />
         );
