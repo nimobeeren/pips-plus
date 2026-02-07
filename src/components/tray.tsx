@@ -3,8 +3,8 @@ import { forwardRef } from "react";
 import { CELL_SIZE, Domino } from "./domino";
 
 export const TRAY_COLS = 3;
-export const TRAY_GAP = 12;
-export const TRAY_PADDING = 16;
+export const TRAY_GAP = 24;
+export const TRAY_PADDING = 48;
 
 /** Compute initial tray position for a domino at the given index. */
 export function initialTrayPosition(index: number): { x: number; y: number } {

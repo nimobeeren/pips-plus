@@ -153,9 +153,9 @@ const PIVOT_FAR_OFFSET: Record<Orientation, { dx: number; dy: number }> = {
 const ROTATION_VISUAL_OFFSET: Record<Orientation, { dx: number; dy: number }> =
   {
     0: { dx: 0, dy: 0 },
-    90: { dx: 0, dy: -CELL_SIZE },
+    90: { dx: 0, dy: 0 },
     180: { dx: -CELL_SIZE, dy: 0 },
-    270: { dx: 0, dy: 0 },
+    270: { dx: 0, dy: -CELL_SIZE },
   };
 
 /**
