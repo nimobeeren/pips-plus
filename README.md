@@ -11,6 +11,7 @@ Each domino has two halves showing 0–6 pips (dots) and covers two adjacent cel
 - **=** — All pip values in the region must be the same
 - **≠** — All pip values must be different
 - **Sum (number)** — Pip values must add up to that number
+- **Π n** — Pip values must multiply to that number
 - **> n** — Every pip value must be greater than n
 - **< n** — Every pip value must be less than n
 - **Blank** — No constraint

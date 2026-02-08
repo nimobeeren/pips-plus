@@ -1,5 +1,6 @@
 import type { Constraint, Region } from "@/types";
 import { cellKey } from "@/types";
+import { useLayoutEffect, useRef } from "react";
 
 export interface BoardLayout {
   minRow: number;
@@ -147,9 +148,7 @@ export function BoardRegionLabels({
                 filter: isViolated ? "none" : "brightness(0.7)",
               }}
             />
-            <span className="relative z-10 -rotate-45 text-xs font-bold text-white">
-              {label}
-            </span>
+            <FitLabel maxWidth={labelSize - 4}>{label}</FitLabel>
           </div>
         );
       })}
@@ -534,6 +533,36 @@ function intersectOrthogonalLines(line1: OffsetLine, line2: OffsetLine): Point {
   return { x: line1.value, y: line2.value };
 }
 
+function FitLabel({
+  children,
+  maxWidth,
+}: {
+  children: string;
+  maxWidth: number;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const naturalWidth = el.offsetWidth;
+    const scale =
+      naturalWidth > maxWidth && naturalWidth > 0 ? maxWidth / naturalWidth : 1;
+    el.style.transform =
+      scale < 1 ? `rotate(-45deg) scale(${scale})` : "rotate(-45deg)";
+  }, [children, maxWidth]);
+
+  return (
+    <span
+      ref={ref}
+      className="relative z-10 inline-block text-xs font-bold text-white whitespace-nowrap"
+      style={{ transform: "rotate(-45deg)" }}
+    >
+      {children}
+    </span>
+  );
+}
+
 function constraintLabel(constraint: Constraint): string {
   switch (constraint.kind) {
     case "none":
@@ -544,6 +573,8 @@ function constraintLabel(constraint: Constraint): string {
       return "≠";
     case "sum":
       return String(constraint.target);
+    case "product":
+      return `Π${constraint.target}`;
     case "greater":
       return `>${constraint.target}`;
     case "less":

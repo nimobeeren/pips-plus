@@ -23,6 +23,8 @@ export function validateConstraint(
       return new Set(values).size === values.length;
     case "sum":
       return values.reduce<number>((a, b) => a + b, 0) === constraint.target;
+    case "product":
+      return values.reduce<number>((a, b) => a * b, 1) === constraint.target;
     case "greater":
       return values.every((v) => v > constraint.target);
     case "less":
@@ -60,6 +62,23 @@ function validatePartialConstraint(
       // Check if remaining cells can reach the target (each cell 0-6)
       if (remaining > emptyCells * 6) return false;
       if (remaining < 0) return false;
+      return true;
+    }
+    case "product": {
+      if (constraint.target === 0) {
+        // Need at least one 0 somewhere
+        if (emptyCells === 0) return values.some((v) => v === 0);
+        return true;
+      }
+      // Target is non-zero, so no value can be 0
+      if (values.some((v) => v === 0)) return false;
+      const product = values.reduce<number>((a, b) => a * b, 1);
+      if (emptyCells === 0) return product === constraint.target;
+      if (product > constraint.target) return false;
+      if (constraint.target % product !== 0) return false;
+      // Check remaining product is achievable (each remaining cell is 1-6)
+      const remainingProduct = constraint.target / product;
+      if (remainingProduct > 6 ** emptyCells) return false;
       return true;
     }
     case "greater":

@@ -2,6 +2,7 @@ export type Pip = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type Constraint =
   | { kind: "sum"; target: number }
+  | { kind: "product"; target: number }
   | { kind: "equal" }
   | { kind: "not-equal" }
   | { kind: "greater"; target: number }

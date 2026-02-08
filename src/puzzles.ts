@@ -10,7 +10,7 @@ import type { Puzzle } from "./types";
  *     . X X .
  *
  * Regions:
- *   A (top-left, rose): (0,0) (0,1) (1,0)          — sum = 8
+ *   A (top-left, rose): (0,0) (0,1) (1,0)          — product = 30
  *   B (right 2x2, sky): (1,2) (1,3) (2,2) (2,3)    — not-equal
  *   C (top-right, green): (0,2)                    — blank
  *   D (bottom-left, violet): (2,0) (2,1) (3,1)     — equal
@@ -39,7 +39,7 @@ export const starterPuzzle: Puzzle = {
         [0, 1],
         [1, 0],
       ],
-      constraint: { kind: "sum", target: 8 },
+      constraint: { kind: "product", target: 30 },
       color: "#f4a0a0",
     },
     {
