@@ -3,6 +3,7 @@ import type {
   DominoPlacement,
   Pip,
   Puzzle,
+  Region,
   ValidationResult,
 } from "./types";
 import { cellKey } from "./types";
@@ -29,7 +30,41 @@ export function validateConstraint(
       return values.every((v) => v > constraint.target);
     case "less":
       return values.every((v) => v < constraint.target);
+    case "mirror":
+      // Cross-region constraint; single-region validation always passes.
+      // Actual validation happens in validateMirrorGroups.
+      return true;
   }
+}
+
+/**
+ * Validates mirror constraints: all regions sharing the same mirror group
+ * must have the same sum.
+ */
+export function validateMirrorGroups(
+  regions: Region[],
+  regionValues: Map<string, Pip[]>,
+): string[] {
+  const groups = new Map<string, string[]>();
+  for (const region of regions) {
+    if (region.constraint.kind === "mirror") {
+      const group = region.constraint.group;
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group)!.push(region.id);
+    }
+  }
+
+  const violated: string[] = [];
+  for (const [, regionIds] of groups) {
+    const sums = regionIds.map((id) => {
+      const vals = regionValues.get(id) ?? [];
+      return vals.reduce<number>((a, b) => a + b, 0);
+    });
+    if (!sums.every((s) => s === sums[0])) {
+      violated.push(...regionIds);
+    }
+  }
+  return violated;
 }
 
 /**
@@ -85,7 +120,61 @@ function validatePartialConstraint(
       return values.every((v) => v > constraint.target);
     case "less":
       return values.every((v) => v < constraint.target);
+    case "mirror":
+      // Cross-region; partial pruning handled separately in checkMirrorPartial
+      return true;
   }
+}
+
+/**
+ * Partial mirror constraint check: if all regions in a mirror group are fully
+ * filled, their sums must match. Also prunes when a filled region's sum is
+ * already unreachable by a partially filled partner.
+ */
+function checkMirrorPartial(puzzle: Puzzle, board: Map<string, Pip>): boolean {
+  const groups = new Map<string, { values: Pip[]; emptyCells: number }[]>();
+  for (const region of puzzle.regions) {
+    if (region.constraint.kind !== "mirror") continue;
+    const group = region.constraint.group;
+    if (!groups.has(group)) groups.set(group, []);
+
+    const values: Pip[] = [];
+    let emptyCells = 0;
+    for (const [r, c] of region.cells) {
+      const val = board.get(cellKey(r, c));
+      if (val !== undefined) values.push(val);
+      else emptyCells++;
+    }
+    groups.get(group)!.push({ values, emptyCells });
+  }
+
+  for (const [, entries] of groups) {
+    const allFilled = entries.every((e) => e.emptyCells === 0);
+    if (allFilled) {
+      const sums = entries.map((e) =>
+        e.values.reduce<number>((a, b) => a + b, 0),
+      );
+      if (!sums.every((s) => s === sums[0])) return false;
+    } else {
+      // Prune: check if any filled region's sum is outside the achievable
+      // range of a partially filled partner
+      for (let i = 0; i < entries.length; i++) {
+        if (entries[i].emptyCells > 0) continue;
+        const filledSum = entries[i].values.reduce<number>((a, b) => a + b, 0);
+        for (let j = 0; j < entries.length; j++) {
+          if (i === j || entries[j].emptyCells === 0) continue;
+          const partialSum = entries[j].values.reduce<number>(
+            (a, b) => a + b,
+            0,
+          );
+          const minPossible = partialSum; // remaining cells could be 0
+          const maxPossible = partialSum + entries[j].emptyCells * 6;
+          if (filledSum < minPossible || filledSum > maxPossible) return false;
+        }
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -109,7 +198,7 @@ function checkConstraints(puzzle: Puzzle, board: Map<string, Pip>): boolean {
       return false;
     }
   }
-  return true;
+  return checkMirrorPartial(puzzle, board);
 }
 
 /**
@@ -369,12 +458,22 @@ export function validateSolution(
 
   // Check each region constraint
   const violatedRegions: string[] = [];
+  const regionValues = new Map<string, Pip[]>();
   for (const region of puzzle.regions) {
     const values: Pip[] = region.cells.map(
       ([r, c]) => board.get(cellKey(r, c))!,
     );
+    regionValues.set(region.id, values);
     if (!validateConstraint(region.constraint, values)) {
       violatedRegions.push(region.id);
+    }
+  }
+
+  // Check cross-region mirror constraints
+  const mirrorViolated = validateMirrorGroups(puzzle.regions, regionValues);
+  for (const id of mirrorViolated) {
+    if (!violatedRegions.includes(id)) {
+      violatedRegions.push(id);
     }
   }
 

@@ -579,6 +579,8 @@ function constraintLabel(constraint: Constraint): string {
       return `>${constraint.target}`;
     case "less":
       return `<${constraint.target}`;
+    case "mirror":
+      return "=n";
   }
 }
 

@@ -1,3 +1,0 @@
-- constraint types
-  - product
-  - mirror (=n)

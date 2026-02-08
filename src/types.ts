@@ -7,6 +7,7 @@ export type Constraint =
   | { kind: "not-equal" }
   | { kind: "greater"; target: number }
   | { kind: "less"; target: number }
+  | { kind: "mirror"; group: string }
   | { kind: "none" };
 
 export interface Region {
