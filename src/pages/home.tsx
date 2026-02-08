@@ -5,7 +5,13 @@ import { useNavigate } from "react-router";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 
 export function HomePage() {
-  const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [difficulty, setDifficulty] = useState<Difficulty>(() => {
+    const saved = localStorage.getItem("difficulty");
+    if (saved && difficulties.includes(saved as Difficulty)) {
+      return saved as Difficulty;
+    }
+    return "easy";
+  });
   const navigate = useNavigate();
 
   return (
@@ -28,7 +34,10 @@ export function HomePage() {
           value={difficulty}
           size="lg"
           onValueChange={(value) => {
-            if (value) setDifficulty(value as Difficulty);
+            if (value) {
+              setDifficulty(value as Difficulty);
+              localStorage.setItem("difficulty", value);
+            }
           }}
         >
           {difficulties.map((d) => (

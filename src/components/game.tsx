@@ -1,3 +1,4 @@
+import { loadGameState, saveGameState } from "@/lib/game-storage";
 import { solve } from "@/solver";
 import type { Puzzle } from "@/types";
 import { isHorizontal } from "@/types";
@@ -17,6 +18,7 @@ import { GameStatus } from "./game-status";
 import {
   ROTATION_VISUAL_OFFSET,
   canPlaceOnBoard,
+  doValidation,
   initState,
   isClickOnFarHalf,
   reducer,
@@ -28,11 +30,30 @@ import { Tray, initialTrayPosition, trayDimensions } from "./tray";
 
 interface GameProps {
   puzzle: Puzzle;
+  name: string;
   backTo?: string;
 }
 
-export function Game({ puzzle, backTo }: GameProps) {
-  const [state, dispatch] = useReducer(reducer, puzzle, initState);
+export function Game({ puzzle, name, backTo }: GameProps) {
+  const [state, dispatch] = useReducer(reducer, puzzle, (puzzle) => {
+    const saved = loadGameState(name, puzzle);
+    if (saved) {
+      return doValidation({
+        puzzle,
+        dominoes: saved.dominoes,
+        nextZOrder: saved.nextZOrder,
+        status: "playing",
+        violatedRegions: [],
+        heldDominoId: null,
+        keyboardCursor: null,
+      });
+    }
+    return initState(puzzle);
+  });
+
+  useEffect(() => {
+    saveGameState(name, puzzle, state.dominoes, state.nextZOrder);
+  }, [name, puzzle, state.dominoes, state.nextZOrder]);
   const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
   const [trayLayout, setTrayLayout] = useState({
     width: 0,

@@ -10,5 +10,5 @@ export function GamePage() {
     return <Navigate to="/" replace />;
   }
 
-  return <Game key={slug} puzzle={puzzle} backTo="/" />;
+  return <Game key={slug} puzzle={puzzle} name={slug!} backTo="/" />;
 }

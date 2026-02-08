@@ -111,7 +111,7 @@ export function canPlaceOnBoard(
   return true;
 }
 
-function doValidation(state: GameState): GameState {
+export function doValidation(state: GameState): GameState {
   const boardDominoes = state.dominoes.filter(
     (d) => d.location.type === "board",
   );
