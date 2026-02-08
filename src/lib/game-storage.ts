@@ -1,11 +1,17 @@
 import type { DominoState, Puzzle } from "@/types";
 
 const STORAGE_PREFIX = "game-state:";
+const RESULT_PREFIX = "puzzle-result:";
+const TIMER_PREFIX = "puzzle-timer:";
 
 interface SavedGameState {
   puzzleFingerprint: string;
   dominoes: DominoState[];
   nextZOrder: number;
+}
+
+export interface PuzzleResult {
+  solveTimeMs: number;
 }
 
 function fingerprint(puzzle: Puzzle): string {
@@ -48,4 +54,41 @@ export function loadGameState(
     localStorage.removeItem(storageKey(name));
     return null;
   }
+}
+
+export function savePuzzleResult(name: string, result: PuzzleResult): void {
+  localStorage.setItem(`${RESULT_PREFIX}${name}`, JSON.stringify(result));
+}
+
+export function loadPuzzleResult(name: string): PuzzleResult | null {
+  const raw = localStorage.getItem(`${RESULT_PREFIX}${name}`);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as PuzzleResult;
+  } catch {
+    return null;
+  }
+}
+
+export function saveElapsedTime(name: string, elapsedMs: number): void {
+  localStorage.setItem(`${TIMER_PREFIX}${name}`, String(elapsedMs));
+}
+
+export function loadElapsedTime(name: string): number {
+  const raw = localStorage.getItem(`${TIMER_PREFIX}${name}`);
+  if (!raw) return 0;
+  const val = Number(raw);
+  return Number.isFinite(val) ? val : 0;
+}
+
+export function clearElapsedTime(name: string): void {
+  localStorage.removeItem(`${TIMER_PREFIX}${name}`);
+}
+
+export function clearPuzzleResult(name: string): void {
+  localStorage.removeItem(`${RESULT_PREFIX}${name}`);
+}
+
+export function isPuzzleSolved(name: string): boolean {
+  return localStorage.getItem(`${RESULT_PREFIX}${name}`) !== null;
 }

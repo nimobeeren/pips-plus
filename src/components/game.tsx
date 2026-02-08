@@ -1,4 +1,14 @@
-import { loadGameState, saveGameState } from "@/lib/game-storage";
+import {
+  clearElapsedTime,
+  clearPuzzleResult,
+  loadElapsedTime,
+  loadGameState,
+  loadPuzzleResult,
+  saveElapsedTime,
+  saveGameState,
+  savePuzzleResult,
+  type PuzzleResult,
+} from "@/lib/game-storage";
 import { solve } from "@/solver";
 import type { Puzzle } from "@/types";
 import { isHorizontal } from "@/types";
@@ -24,7 +34,11 @@ import {
   reducer,
   type DragInfo,
 } from "./game-state";
+import { PauseModal } from "./pause-modal";
+import { ResultsModal } from "./results-modal";
 import { Tray, initialTrayPosition, trayDimensions } from "./tray";
+
+const PAUSE_DELAY_MS = 10_000;
 
 // --- Game component ---
 
@@ -51,6 +65,127 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     return initState(puzzle);
   });
 
+  // Puzzle result & timer (tracks only active page time)
+  const [puzzleResult, setPuzzleResult] = useState<PuzzleResult | null>(() =>
+    loadPuzzleResult(name),
+  );
+  const [showResults, setShowResults] = useState(false);
+  const [showPaused, setShowPaused] = useState(false);
+
+  // Accumulated elapsed ms from previous sessions, loaded on mount
+  const accumulatedMsRef = useRef(0);
+  // Timestamp when the current active session started
+  const sessionStartRef = useRef(0);
+  // Whether the timer is currently running
+  const timerRunningRef = useRef(false);
+
+  const getElapsedMs = useCallback(() => {
+    if (!timerRunningRef.current) return accumulatedMsRef.current;
+    return accumulatedMsRef.current + (Date.now() - sessionStartRef.current);
+  }, []);
+
+  const pauseTimer = useCallback(() => {
+    if (!timerRunningRef.current) return;
+    accumulatedMsRef.current += Date.now() - sessionStartRef.current;
+    timerRunningRef.current = false;
+    saveElapsedTime(name, accumulatedMsRef.current);
+    console.log("[timer] paused at", accumulatedMsRef.current, "ms");
+  }, [name]);
+
+  const resumeTimer = useCallback(() => {
+    if (timerRunningRef.current) return;
+    sessionStartRef.current = Date.now();
+    timerRunningRef.current = true;
+    console.log("[timer] resumed from", accumulatedMsRef.current, "ms");
+  }, []);
+
+  // Initialize timer on mount (only if not already solved)
+  useEffect(() => {
+    if (puzzleResult) return;
+    accumulatedMsRef.current = loadElapsedTime(name);
+    sessionStartRef.current = Date.now();
+    timerRunningRef.current = true;
+
+    return () => {
+      if (timerRunningRef.current) {
+        accumulatedMsRef.current += Date.now() - sessionStartRef.current;
+        timerRunningRef.current = false;
+        saveElapsedTime(name, accumulatedMsRef.current);
+      }
+    };
+  }, [name, puzzleResult]);
+
+  // Visibility change: pause/resume timer, show pause modal if hidden long enough
+  const hiddenAtRef = useRef<number | null>(null);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showPausedRef = useRef(false);
+
+  useEffect(() => {
+    showPausedRef.current = showPaused;
+  }, [showPaused]);
+
+  useEffect(() => {
+    if (puzzleResult) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        pauseTimer();
+        hiddenAtRef.current = Date.now();
+        pauseTimeoutRef.current = setTimeout(() => {
+          setShowPaused(true);
+        }, PAUSE_DELAY_MS);
+      } else {
+        if (pauseTimeoutRef.current) {
+          clearTimeout(pauseTimeoutRef.current);
+          pauseTimeoutRef.current = null;
+        }
+
+        const hiddenAt = hiddenAtRef.current;
+        hiddenAtRef.current = null;
+        const hiddenDuration = hiddenAt ? Date.now() - hiddenAt : 0;
+
+        if (hiddenDuration >= PAUSE_DELAY_MS || showPausedRef.current) {
+          setShowPaused(true);
+        } else {
+          resumeTimer();
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+        pauseTimeoutRef.current = null;
+      }
+    };
+  }, [puzzleResult, pauseTimer, resumeTimer]);
+
+  const handleResume = useCallback(() => {
+    setShowPaused(false);
+    resumeTimer();
+  }, [resumeTimer]);
+
+  // When puzzle becomes solved, compute and save result
+  const prevStatusRef = useRef(state.status);
+  useEffect(() => {
+    if (
+      state.status === "solved" &&
+      prevStatusRef.current !== "solved" &&
+      !puzzleResult
+    ) {
+      const solveTimeMs = getElapsedMs();
+      pauseTimer();
+      const result: PuzzleResult = { solveTimeMs };
+      savePuzzleResult(name, result);
+      clearElapsedTime(name);
+      setPuzzleResult(result);
+      setShowResults(true);
+    }
+    prevStatusRef.current = state.status;
+  }, [state.status, name, puzzleResult, getElapsedMs, pauseTimer]);
+
   useEffect(() => {
     saveGameState(name, puzzle, state.dominoes, state.nextZOrder);
   }, [name, puzzle, state.dominoes, state.nextZOrder]);
@@ -73,7 +208,16 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
   const handleClear = useCallback(() => {
     dispatch({ type: "CLEAR" });
-  }, []);
+    if (puzzleResult) {
+      clearPuzzleResult(name);
+      clearElapsedTime(name);
+      setPuzzleResult(null);
+      setShowResults(false);
+      accumulatedMsRef.current = 0;
+      sessionStartRef.current = Date.now();
+      timerRunningRef.current = true;
+    }
+  }, [name, puzzleResult]);
 
   const computeTrayLayout = useCallback(() => {
     const fallback = trayDimensions(puzzle.dominoes.length);
@@ -396,9 +540,11 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         onSolve={handleSolve}
         onClear={handleClear}
         backTo={backTo}
+        solved={!!puzzleResult}
+        onViewResults={() => setShowResults(true)}
       />
 
-      {/* Status messages */}
+      {/* Status messages (only for invalid) */}
       <GameStatus status={state.status} />
 
       {/* Board area */}
@@ -434,6 +580,19 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
       {/* Drag ghost: rendered in physical orientation (no CSS rotation) */}
       <GameDragGhost dragInfo={dragInfo} draggingDomino={draggingDomino} />
+
+      {/* Results modal */}
+      {puzzleResult && (
+        <ResultsModal
+          open={showResults}
+          onOpenChange={setShowResults}
+          result={puzzleResult}
+          puzzleName={name}
+        />
+      )}
+
+      {/* Pause modal */}
+      <PauseModal open={showPaused} onResume={handleResume} />
     </div>
   );
 }

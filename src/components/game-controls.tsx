@@ -6,9 +6,17 @@ interface GameControlsProps {
   onSolve: () => void;
   onClear: () => void;
   backTo?: string;
+  solved?: boolean;
+  onViewResults?: () => void;
 }
 
-export function GameControls({ onSolve, onClear, backTo }: GameControlsProps) {
+export function GameControls({
+  onSolve,
+  onClear,
+  backTo,
+  solved,
+  onViewResults,
+}: GameControlsProps) {
   const navigate = useNavigate();
 
   return (
@@ -23,14 +31,21 @@ export function GameControls({ onSolve, onClear, backTo }: GameControlsProps) {
           <ChevronLeft className="size-5" />
         </Button>
       )}
-      <Button
-        onClick={onSolve}
-        variant="outline"
-        size="sm"
-        data-testid="solve-button"
-      >
-        Show Solution
-      </Button>
+      {solved && onViewResults && (
+        <Button onClick={onViewResults} variant="outline" size="sm">
+          View Results
+        </Button>
+      )}
+      {!solved && (
+        <Button
+          onClick={onSolve}
+          variant="outline"
+          size="sm"
+          data-testid="solve-button"
+        >
+          Show Solution
+        </Button>
+      )}
       <Button
         onClick={onClear}
         variant="outline"
