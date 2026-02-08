@@ -41,8 +41,11 @@ export function ResultsModal({
         <DialogHeader className="items-center">
           <DialogTitle className="text-2xl">Congrats!</DialogTitle>
           <DialogDescription>
-            You finished the {puzzleName} puzzle in{" "}
-            {formatTime(result.solveTimeMs)}.
+            You finished{" "}
+            {puzzleName.startsWith("custom:")
+              ? "a custom"
+              : `the ${puzzleName}`}{" "}
+            puzzle in {formatTime(result.solveTimeMs)}.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">

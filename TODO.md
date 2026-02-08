@@ -1,2 +1,1 @@
-- fix congrats popup with long puzzle name
 - JSON mode
