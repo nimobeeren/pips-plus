@@ -1,2 +1,2 @@
-- Use browser tools to validate your results when possible. Clearly indicate when browser tools are not available to you.
-- Prefer shadcn/ui components over making your own. Use the shadcn MCP + CLI to find and add new components when needed.
+- Use the Playwright CLI skill to validate your results when possible.
+- Prefer shadcn/ui components over making your own. Use the shadcn CLI to find and add new components when needed.
