@@ -21,6 +21,7 @@ export function HomePage() {
   void resetKey;
 
   const isSolved = difficulty in puzzles && isPuzzleSolved(difficulty);
+  const allSolved = Object.keys(puzzles).every(isPuzzleSolved);
 
   const handleReset = useCallback(() => {
     localStorage.clear();
@@ -74,6 +75,17 @@ export function HomePage() {
         <Button onClick={() => navigate(`/${difficulty}`)} size="lg">
           {isSolved ? "Admire Puzzle" : "Play"}
         </Button>
+
+        {/* Create Puzzle — visible once all puzzles are solved */}
+        {allSolved && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate("/editor")}
+            size="sm"
+          >
+            Puzzle Editor
+          </Button>
+        )}
       </div>
 
       {/* Footer */}

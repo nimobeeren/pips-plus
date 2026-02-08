@@ -180,7 +180,10 @@ function checkMirrorPartial(puzzle: Puzzle, board: Map<string, Pip>): boolean {
 /**
  * Checks all region constraints against the current (partial) board state.
  */
-function checkConstraints(puzzle: Puzzle, board: Map<string, Pip>): boolean {
+export function checkConstraints(
+  puzzle: Puzzle,
+  board: Map<string, Pip>,
+): boolean {
   for (const region of puzzle.regions) {
     const values: Pip[] = [];
     let emptyCells = 0;
@@ -205,7 +208,7 @@ function checkConstraints(puzzle: Puzzle, board: Map<string, Pip>): boolean {
  * Checks if any empty cell has become isolated (no empty neighbors),
  * which would make it impossible to place a domino there.
  */
-function hasIsolatedCell(
+export function hasIsolatedCell(
   cells: [number, number][],
   board: Map<string, Pip>,
   cellSet: Set<string>,

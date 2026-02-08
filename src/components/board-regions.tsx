@@ -163,6 +163,73 @@ export function buildCellsOutlinePath(
   padding: number,
   cornerRadius: number,
 ): string {
+  if (cells.length === 0) return "";
+
+  // Split into connected components so each group is processed independently.
+  // This ensures disconnected cell groups each get the correct expanded outline.
+  const components = getConnectedComponents(cells);
+  const paths: string[] = [];
+
+  for (const component of components) {
+    const path = buildComponentOutline(
+      component,
+      layout,
+      cellSize,
+      padding,
+      cornerRadius,
+    );
+    if (path) paths.push(path);
+  }
+
+  return paths.join(" ");
+}
+
+function getConnectedComponents(
+  cells: [number, number][],
+): [number, number][][] {
+  const cellSet = new Set(cells.map(([r, c]) => cellKey(r, c)));
+  const visited = new Set<string>();
+  const components: [number, number][][] = [];
+
+  for (const [r, c] of cells) {
+    const key = cellKey(r, c);
+    if (visited.has(key)) continue;
+
+    const component: [number, number][] = [];
+    const queue: [number, number][] = [[r, c]];
+    visited.add(key);
+
+    while (queue.length > 0) {
+      const [cr, cc] = queue.shift()!;
+      component.push([cr, cc]);
+
+      for (const [nr, nc] of [
+        [cr - 1, cc],
+        [cr + 1, cc],
+        [cr, cc - 1],
+        [cr, cc + 1],
+      ] as [number, number][]) {
+        const nk = cellKey(nr, nc);
+        if (cellSet.has(nk) && !visited.has(nk)) {
+          visited.add(nk);
+          queue.push([nr, nc]);
+        }
+      }
+    }
+
+    components.push(component);
+  }
+
+  return components;
+}
+
+function buildComponentOutline(
+  cells: [number, number][],
+  layout: BoardLayout,
+  cellSize: number,
+  padding: number,
+  cornerRadius: number,
+): string {
   const cellSet = new Set(cells.map(([r, c]) => cellKey(r, c)));
   const borderSegments: Segment[] = [];
 
@@ -195,8 +262,8 @@ export function buildCellsOutlinePath(
 
   const simplified = loops.map((loop) => simplifyLoop(loop));
 
-  // Find the outer loop (largest area) so we can expand it outward,
-  // while inner loops (holes) get expanded inward.
+  // Within a connected component, the largest loop is the outer boundary
+  // and any smaller loops are holes.
   let outerIdx = 0;
   let maxArea = 0;
   for (let i = 0; i < simplified.length; i++) {

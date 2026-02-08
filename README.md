@@ -1,4 +1,4 @@
-# pips-plus
+# Pips+
 
 A domino puzzle game inspired by the New York Times' [Pips](https://www.nytimes.com/games/pips).
 

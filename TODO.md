@@ -1,0 +1,3 @@
+- editor in localstorage
+- fix congrats popup with long puzzle name
+- JSON mode
