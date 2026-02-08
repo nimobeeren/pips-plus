@@ -28,9 +28,10 @@ import { Tray, initialTrayPosition, trayDimensions } from "./tray";
 
 interface GameProps {
   puzzle: Puzzle;
+  backTo?: string;
 }
 
-export function Game({ puzzle }: GameProps) {
+export function Game({ puzzle, backTo }: GameProps) {
   const [state, dispatch] = useReducer(reducer, puzzle, initState);
   const [dragInfo, setDragInfo] = useState<DragInfo | null>(null);
   const [trayLayout, setTrayLayout] = useState({
@@ -370,7 +371,11 @@ export function Game({ puzzle }: GameProps) {
   return (
     <div className="flex min-h-svh flex-col">
       {/* Controls at top */}
-      <GameControls onSolve={handleSolve} onClear={handleClear} />
+      <GameControls
+        onSolve={handleSolve}
+        onClear={handleClear}
+        backTo={backTo}
+      />
 
       {/* Status messages */}
       <GameStatus status={state.status} />

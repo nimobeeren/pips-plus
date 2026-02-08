@@ -1,0 +1,2 @@
+- Use browser tools to validate your results when possible. Clearly indicate when browser tools are not available to you.
+- Prefer shadcn/ui components over making your own. Use the shadcn MCP + CLI to find and add new components when needed.

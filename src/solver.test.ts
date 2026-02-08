@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { hardPuzzle, starterPuzzle } from "./puzzles";
+import { puzzles } from "./puzzles";
+
+const starterPuzzle = puzzles.easy;
+const hardPuzzle = puzzles.hard;
 import {
   solve,
   validateConstraint,
