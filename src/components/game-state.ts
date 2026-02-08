@@ -261,6 +261,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
         if (d.id !== action.id) return d;
         const nextOrientation = ((d.orientation + 90) % 360) as Orientation;
 
+        // Held domino is "in the air": freely rotate without constraints
+        if (state.heldDominoId === d.id) {
+          return { ...d, orientation: nextOrientation };
+        }
+
         if (d.location.type === "board") {
           // Resolve pivot to a cell position (stays fixed across chained rotations)
           const covered = getCoveredCells(
@@ -471,9 +476,16 @@ export function reducer(state: GameState, action: GameAction): GameState {
 
     case "CONFIRM_PLACEMENT": {
       if (!state.heldDominoId || !state.keyboardCursor) return state;
-      const [row, col] = state.keyboardCursor;
+      const [cursorRow, cursorCol] = state.keyboardCursor;
       const domino = state.dominoes.find((d) => d.id === state.heldDominoId);
       if (!domino) return state;
+
+      // The cursor marks the pivot cell. For 180°/270° the domino extends
+      // in the negative direction, so shift the anchor to the top-left cell.
+      let row = cursorRow;
+      let col = cursorCol;
+      if (domino.orientation === 180) col -= 1;
+      if (domino.orientation === 270) row -= 1;
 
       if (!canPlaceOnBoard(state, domino.id, row, col, domino.orientation)) {
         return state;

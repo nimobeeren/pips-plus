@@ -52,7 +52,12 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
   ref,
 ) {
   const trayDominoes = dominoes
-    .filter((d) => d.location.type === "tray" && d.id !== draggedDominoId)
+    .filter(
+      (d) =>
+        d.location.type === "tray" &&
+        d.id !== draggedDominoId &&
+        d.id !== heldDominoId,
+    )
     .sort((a, b) => a.zOrder - b.zOrder);
 
   const dims = trayDimensions(puzzle.dominoes.length);

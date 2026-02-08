@@ -1,6 +1,6 @@
 import type { DominoState, Orientation, Puzzle } from "@/types";
 import { isHorizontal } from "@/types";
-import { forwardRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import {
   BoardRegionBorderOverlay,
   BoardRegionFillOverlay,
@@ -40,8 +40,14 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
 ) {
   const layout = getBoardLayout(puzzle.cells);
   const boardDominoes = dominoes.filter(
-    (d) => d.location.type === "board" && d.id !== draggedDominoId,
+    (d) =>
+      d.location.type === "board" &&
+      d.id !== draggedDominoId &&
+      d.id !== heldDominoId,
   );
+  const heldDomino = heldDominoId
+    ? (dominoes.find((d) => d.id === heldDominoId) ?? null)
+    : null;
 
   return (
     <div
@@ -72,7 +78,16 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
         cellSize={CELL_SIZE}
         cellInset={CELL_INSET}
       />
-      <BoardCursor cursor={keyboardCursor} layout={layout} />
+      {heldDomino && keyboardCursor && (
+        <BoardHeldDomino
+          domino={heldDomino}
+          cursor={keyboardCursor}
+          layout={layout}
+          onDominoPointerDown={onDominoPointerDown}
+          onDominoClick={onDominoClick}
+          onDominoKeyDown={onDominoKeyDown}
+        />
+      )}
       <BoardRegionLabels
         regions={puzzle.regions}
         violatedRegions={violatedRegions}
@@ -200,26 +215,53 @@ function BoardDominoes({
   );
 }
 
-interface BoardCursorProps {
-  cursor: [number, number] | null;
+interface BoardHeldDominoProps {
+  domino: DominoState;
+  cursor: [number, number];
   layout: BoardLayout;
+  onDominoPointerDown: (id: string, e: React.PointerEvent) => void;
+  onDominoClick: (id: string) => void;
+  onDominoKeyDown: (id: string, e: React.KeyboardEvent) => void;
 }
 
-function BoardCursor({ cursor, layout }: BoardCursorProps) {
-  if (!cursor) return null;
+function BoardHeldDomino({
+  domino,
+  cursor,
+  layout,
+  onDominoPointerDown,
+  onDominoClick,
+  onDominoKeyDown,
+}: BoardHeldDominoProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = wrapperRef.current?.querySelector<HTMLElement>("[tabindex]");
+    el?.focus();
+  }, []);
+
+  const [row, col] = cursor;
 
   return (
     <div
-      className="pointer-events-none absolute"
+      ref={wrapperRef}
+      className="absolute"
       style={{
-        left: (cursor[1] - layout.minCol) * CELL_SIZE - 2,
-        top: (cursor[0] - layout.minRow) * CELL_SIZE - 2,
-        width: CELL_SIZE + 4,
-        height: CELL_SIZE + 4,
-        outline: "3px solid #3b82f6",
+        left: (col - layout.minCol) * CELL_SIZE + CELL_INSET,
+        top: (row - layout.minRow) * CELL_SIZE + CELL_INSET,
         zIndex: 50,
       }}
-    />
+    >
+      <Domino
+        id={domino.id}
+        values={domino.values}
+        orientation={domino.orientation}
+        isHeld
+        onPointerDown={(e) => onDominoPointerDown(domino.id, e)}
+        onClick={() => onDominoClick(domino.id)}
+        onKeyDown={(e) => onDominoKeyDown(domino.id, e)}
+        tabIndex={0}
+      />
+    </div>
   );
 }
 
