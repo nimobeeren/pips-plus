@@ -63,11 +63,67 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { useNavigate } from "react-router";
 
 const GRID_ROWS = 8;
 const GRID_COLS = 10;
+const EDITOR_STORAGE_KEY = "editor-state";
+
+// --- Storage ---
+
+interface SavedEditorState {
+  cells: string[];
+  regions: Region[];
+  dominoes: EditorDomino[];
+  activeTool: EditorTool;
+  activeRegionId: string | null;
+  dominoPips: [Pip, Pip];
+  nextRegionIndex: number;
+  nextDominoIndex: number;
+}
+
+function saveEditorState(state: EditorState): void {
+  const data: SavedEditorState = {
+    cells: Array.from(state.cells),
+    regions: state.regions,
+    dominoes: state.dominoes,
+    activeTool: state.activeTool,
+    activeRegionId: state.activeRegionId,
+    dominoPips: state.dominoPips,
+    nextRegionIndex: state.nextRegionIndex,
+    nextDominoIndex: state.nextDominoIndex,
+  };
+  localStorage.setItem(EDITOR_STORAGE_KEY, JSON.stringify(data));
+}
+
+function loadEditorState(): EditorState | null {
+  const raw = localStorage.getItem(EDITOR_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const data: SavedEditorState = JSON.parse(raw);
+    return {
+      cells: new Set(data.cells),
+      regions: data.regions,
+      dominoes: data.dominoes,
+      activeTool: data.activeTool,
+      activeRegionId: data.activeRegionId,
+      dominoPips: data.dominoPips,
+      checkState: "unchecked",
+      checkValid: false,
+      violatedRegions: [],
+      nextRegionIndex: data.nextRegionIndex,
+      nextDominoIndex: data.nextDominoIndex,
+    };
+  } catch {
+    localStorage.removeItem(EDITOR_STORAGE_KEY);
+    return null;
+  }
+}
+
+function clearEditorState(): void {
+  localStorage.removeItem(EDITOR_STORAGE_KEY);
+}
 
 // --- State ---
 
@@ -121,19 +177,21 @@ type EditorAction =
   | { type: "CLEAR" };
 
 function initState(): EditorState {
-  return {
-    cells: new Set(),
-    regions: [],
-    dominoes: [],
-    activeTool: "cell",
-    activeRegionId: null,
-    dominoPips: [0, 0],
-    checkState: "unchecked",
-    checkValid: false,
-    violatedRegions: [],
-    nextRegionIndex: 0,
-    nextDominoIndex: 1,
-  };
+  return (
+    loadEditorState() ?? {
+      cells: new Set(),
+      regions: [],
+      dominoes: [],
+      activeTool: "cell",
+      activeRegionId: null,
+      dominoPips: [0, 0],
+      checkState: "unchecked",
+      checkValid: false,
+      violatedRegions: [],
+      nextRegionIndex: 0,
+      nextDominoIndex: 1,
+    }
+  );
 }
 
 function clearCheck(state: EditorState): EditorState {
@@ -450,7 +508,20 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     }
 
     case "CLEAR":
-      return initState();
+      clearEditorState();
+      return {
+        cells: new Set(),
+        regions: [],
+        dominoes: [],
+        activeTool: "cell",
+        activeRegionId: null,
+        dominoPips: [0, 0],
+        checkState: "unchecked",
+        checkValid: false,
+        violatedRegions: [],
+        nextRegionIndex: 0,
+        nextDominoIndex: 1,
+      };
   }
 }
 
@@ -460,6 +531,11 @@ export function EditorPage() {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, undefined, initState);
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
+
+  // Auto-save editor state to localStorage on every change
+  useEffect(() => {
+    saveEditorState(state);
+  }, [state]);
 
   // Popover state for region editing on board
   const [regionPopover, setRegionPopover] = useState<{
