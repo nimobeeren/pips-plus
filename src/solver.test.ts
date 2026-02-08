@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { starterPuzzle } from "./puzzles";
+import { hardPuzzle, starterPuzzle } from "./puzzles";
 import {
   solve,
   validateConstraint,
@@ -402,6 +402,15 @@ describe("solve", () => {
     expect(result).toHaveLength(starterPuzzle.dominoes.length);
 
     const validation = validateSolution(starterPuzzle, result!);
+    expect(validation.valid).toBe(true);
+  });
+
+  test("hard puzzle is solvable", () => {
+    const result = solve(hardPuzzle);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(hardPuzzle.dominoes.length);
+
+    const validation = validateSolution(hardPuzzle, result!);
     expect(validation.valid).toBe(true);
   });
 });
