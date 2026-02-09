@@ -647,7 +647,7 @@ function constraintLabel(constraint: Constraint): string {
     case "less":
       return `<${constraint.target}`;
     case "mirror":
-      return "=n";
+      return `=${constraint.group}`;
   }
 }
 

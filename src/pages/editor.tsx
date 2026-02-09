@@ -1,10 +1,11 @@
 import { CodeEditorModal } from "@/components/code-editor-modal";
+import { CELL_SIZE, Domino } from "@/components/domino";
 import {
   EditorBoard,
   type EditorDomino,
   type EditorTool,
 } from "@/components/editor-board";
-import { Domino } from "@/components/domino";
+import { PipDots } from "@/components/pip-dots";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,24 +34,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { CELL_SIZE } from "@/components/domino";
-import { PipDots } from "@/components/pip-dots";
-import { generateDominoes } from "@/lib/design-solver";
-import { encodePuzzle, getRegionColor } from "@/lib/puzzle-codec";
-import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { analyzePuzzle, type AnalysisResult } from "@/solver";
-import { validateConstraint, validateMirrorGroups } from "@/solver";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { generateDominoes } from "@/lib/design-solver";
+import { encodePuzzle, getRegionColor } from "@/lib/puzzle-codec";
+import {
+  analyzePuzzle,
+  validateConstraint,
+  validateMirrorGroups,
+  type AnalysisResult,
+} from "@/solver";
 import type {
   Constraint,
   DominoDef,
@@ -93,6 +96,9 @@ interface SavedEditorState {
   activeTool: EditorTool;
   activeRegionId: string | null;
   dominoPips: [Pip, Pip];
+  regionConstraintKind?: Constraint["kind"];
+  regionConstraintTarget?: number;
+  regionConstraintGroup?: string;
   nextRegionIndex: number;
   nextDominoIndex: number;
 }
@@ -105,6 +111,9 @@ function saveEditorState(state: EditorState): void {
     activeTool: state.activeTool,
     activeRegionId: state.activeRegionId,
     dominoPips: state.dominoPips,
+    regionConstraintKind: state.regionConstraintKind,
+    regionConstraintTarget: state.regionConstraintTarget,
+    regionConstraintGroup: state.regionConstraintGroup,
     nextRegionIndex: state.nextRegionIndex,
     nextDominoIndex: state.nextDominoIndex,
   };
@@ -123,6 +132,9 @@ function loadEditorState(): EditorState | null {
       activeTool: data.activeTool,
       activeRegionId: data.activeRegionId,
       dominoPips: data.dominoPips,
+      regionConstraintKind: data.regionConstraintKind ?? "equal",
+      regionConstraintTarget: data.regionConstraintTarget ?? 1,
+      regionConstraintGroup: data.regionConstraintGroup ?? "n",
       checkState: "unchecked",
       checkValid: false,
       violatedRegions: [],
@@ -148,6 +160,9 @@ interface EditorState {
   activeTool: EditorTool;
   activeRegionId: string | null;
   dominoPips: [Pip, Pip];
+  regionConstraintKind: Constraint["kind"];
+  regionConstraintTarget: number;
+  regionConstraintGroup: string;
   checkState: "unchecked" | "checked";
   checkValid: boolean;
   violatedRegions: string[];
@@ -182,6 +197,9 @@ type EditorAction =
   | { type: "UPDATE_DOMINO"; id: string; values: [Pip, Pip] }
   | { type: "REMOVE_DOMINO"; id: string }
   | { type: "SET_DOMINO_PIPS"; pips: [Pip, Pip] }
+  | { type: "SET_REGION_CONSTRAINT_KIND"; kind: Constraint["kind"] }
+  | { type: "SET_REGION_CONSTRAINT_TARGET"; target: number }
+  | { type: "SET_REGION_CONSTRAINT_GROUP"; group: string }
   | {
       type: "SET_GENERATED";
       dominoes: DominoDef[];
@@ -205,6 +223,9 @@ function initState(): EditorState {
       activeTool: "cell",
       activeRegionId: null,
       dominoPips: [0, 0],
+      regionConstraintKind: "equal",
+      regionConstraintTarget: 1,
+      regionConstraintGroup: "n",
       checkState: "unchecked",
       checkValid: false,
       violatedRegions: [],
@@ -237,6 +258,31 @@ function getOccupiedCells(
     }
   }
   return occupied;
+}
+
+function defaultConstraint(
+  kind: Constraint["kind"],
+  target: number,
+  group: string,
+): Constraint {
+  switch (kind) {
+    case "sum":
+      return { kind: "sum", target };
+    case "product":
+      return { kind: "product", target };
+    case "greater":
+      return { kind: "greater", target };
+    case "less":
+      return { kind: "less", target };
+    case "mirror":
+      return { kind: "mirror", group: group || "n" };
+    case "equal":
+      return { kind: "equal" };
+    case "not-equal":
+      return { kind: "not-equal" };
+    case "none":
+      return { kind: "none" };
+  }
 }
 
 function reducer(state: EditorState, action: EditorAction): EditorState {
@@ -279,11 +325,27 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       }
 
       const id = String.fromCharCode(65 + state.nextRegionIndex);
-      const color = getRegionColor(state.nextRegionIndex);
+      const constraint = defaultConstraint(
+        state.regionConstraintKind,
+        state.regionConstraintTarget,
+        state.regionConstraintGroup,
+      );
+      // Mirror regions with the same group letter share a color
+      let color: string;
+      if (constraint.kind === "mirror") {
+        const sibling = state.regions.find(
+          (r) =>
+            r.constraint.kind === "mirror" &&
+            r.constraint.group === constraint.group,
+        );
+        color = sibling ? sibling.color : getRegionColor(state.nextRegionIndex);
+      } else {
+        color = getRegionColor(state.nextRegionIndex);
+      }
       const newRegion: Region = {
         id,
         cells: [[action.row, action.col]],
-        constraint: { kind: "equal" },
+        constraint,
         color,
       };
       return clearCheck({
@@ -328,9 +390,24 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     }
 
     case "SET_CONSTRAINT": {
-      const newRegions = state.regions.map((r) =>
+      let newRegions = state.regions.map((r) =>
         r.id === action.regionId ? { ...r, constraint: action.constraint } : r,
       );
+      // Sync colors for mirror regions with the same group
+      if (action.constraint.kind === "mirror") {
+        const group = action.constraint.group;
+        const sibling = newRegions.find(
+          (r) =>
+            r.id !== action.regionId &&
+            r.constraint.kind === "mirror" &&
+            r.constraint.group === group,
+        );
+        if (sibling) {
+          newRegions = newRegions.map((r) =>
+            r.id === action.regionId ? { ...r, color: sibling.color } : r,
+          );
+        }
+      }
       return clearCheck({ ...state, regions: newRegions });
     }
 
@@ -436,6 +513,15 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
 
     case "SET_DOMINO_PIPS":
       return { ...state, dominoPips: action.pips };
+
+    case "SET_REGION_CONSTRAINT_KIND":
+      return { ...state, regionConstraintKind: action.kind };
+
+    case "SET_REGION_CONSTRAINT_TARGET":
+      return { ...state, regionConstraintTarget: action.target };
+
+    case "SET_REGION_CONSTRAINT_GROUP":
+      return { ...state, regionConstraintGroup: action.group };
 
     case "SET_GENERATED": {
       const editorDominoes: EditorDomino[] = action.placements.map((p, i) => {
@@ -554,6 +640,9 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         activeTool: "cell",
         activeRegionId: null,
         dominoPips: [0, 0],
+        regionConstraintKind: "equal",
+        regionConstraintTarget: 1,
+        regionConstraintGroup: "n",
         checkState: "unchecked",
         checkValid: false,
         violatedRegions: [],
@@ -588,13 +677,6 @@ export function EditorPage() {
     col: number;
   } | null>(null);
 
-  // Pending region popup: set on create, opened on interaction end
-  const [pendingRegionPopup, setPendingRegionPopup] = useState<{
-    regionId: string;
-    row: number;
-    col: number;
-  } | null>(null);
-
   // Popover state for domino editing
   const [dominoPopover, setDominoPopover] = useState<string | null>(null);
 
@@ -610,11 +692,9 @@ export function EditorPage() {
       for (const r of state.regions) {
         if (r.cells.some(([cr, cc]) => cellKey(cr, cc) === key)) return;
       }
-      const newRegionId = String.fromCharCode(65 + state.nextRegionIndex);
       dispatch({ type: "CREATE_REGION_AT", row, col });
-      setPendingRegionPopup({ regionId: newRegionId, row, col });
     },
-    [state.nextRegionIndex, state.cells, state.regions],
+    [state.cells, state.regions],
   );
 
   const handleRegionExtend = useCallback((row: number, col: number) => {
@@ -622,11 +702,8 @@ export function EditorPage() {
   }, []);
 
   const handleInteractionEnd = useCallback(() => {
-    if (pendingRegionPopup) {
-      setRegionPopover(pendingRegionPopup);
-      setPendingRegionPopup(null);
-    }
-  }, [pendingRegionPopup]);
+    // no-op: region popup is no longer shown on creation
+  }, []);
 
   const handleRegionCellClick = useCallback(
     (regionId: string, row: number, col: number) => {
@@ -1192,6 +1269,22 @@ export function EditorPage() {
               className="flex flex-1 items-center gap-2"
               style={{ minHeight: 60 }}
             >
+              {state.activeTool === "region" && (
+                <ConstraintKindSelector
+                  kind={state.regionConstraintKind}
+                  target={state.regionConstraintTarget}
+                  group={state.regionConstraintGroup}
+                  onKindChange={(kind) =>
+                    dispatch({ type: "SET_REGION_CONSTRAINT_KIND", kind })
+                  }
+                  onTargetChange={(target) =>
+                    dispatch({ type: "SET_REGION_CONSTRAINT_TARGET", target })
+                  }
+                  onGroupChange={(group) =>
+                    dispatch({ type: "SET_REGION_CONSTRAINT_GROUP", group })
+                  }
+                />
+              )}
               {state.activeTool === "domino" && (
                 <PipSelector
                   values={state.dominoPips}
@@ -1290,6 +1383,86 @@ function ToolButton({
       </TooltipTrigger>
       <TooltipContent>{tooltip}</TooltipContent>
     </Tooltip>
+  );
+}
+
+const CONSTRAINT_KIND_OPTIONS: {
+  value: Constraint["kind"];
+  label: string;
+  shortLabel: string;
+  hasTarget?: boolean;
+  hasGroup?: boolean;
+}[] = [
+  { value: "sum", label: "Sum", shortLabel: "Σ", hasTarget: true },
+  { value: "product", label: "Product", shortLabel: "Π", hasTarget: true },
+  { value: "equal", label: "Equal", shortLabel: "=" },
+  { value: "not-equal", label: "Not Equal", shortLabel: "≠" },
+  { value: "greater", label: "Greater Than", shortLabel: ">", hasTarget: true },
+  { value: "less", label: "Less Than", shortLabel: "<", hasTarget: true },
+  { value: "mirror", label: "Mirror", shortLabel: "⇔", hasGroup: true },
+];
+
+function ConstraintKindSelector({
+  kind,
+  target,
+  group,
+  onKindChange,
+  onTargetChange,
+  onGroupChange,
+}: {
+  kind: Constraint["kind"];
+  target: number;
+  group: string;
+  onKindChange: (kind: Constraint["kind"]) => void;
+  onTargetChange: (target: number) => void;
+  onGroupChange: (group: string) => void;
+}) {
+  const activeOption = CONSTRAINT_KIND_OPTIONS.find((o) => o.value === kind);
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex flex-wrap gap-0.5">
+        {CONSTRAINT_KIND_OPTIONS.map((opt) => (
+          <Tooltip key={opt.value}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={kind === opt.value ? "default" : "outline"}
+                size="sm"
+                className="h-7 w-7 px-0 text-xs"
+                onClick={() => onKindChange(opt.value)}
+              >
+                {opt.shortLabel}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{opt.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+      {activeOption?.hasTarget && (
+        <Input
+          type="number"
+          value={target}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            if (Number.isFinite(val)) onTargetChange(val);
+          }}
+          className="h-7 w-16 text-xs"
+          min={0}
+        />
+      )}
+      {activeOption?.hasGroup && (
+        <Input
+          type="text"
+          value={group}
+          maxLength={1}
+          onChange={(e) => {
+            const val = e.target.value.slice(0, 1);
+            onGroupChange(val);
+          }}
+          className="h-7 w-10 text-center text-xs"
+          placeholder="n"
+        />
+      )}
+    </div>
   );
 }
 
@@ -1596,9 +1769,6 @@ function PuzzleInfoSheet({
   const cellCount = cells.size;
   const dominoCount = dominoes.length;
   const regionCount = regions.length;
-  const cellsInRegions = regions.reduce((n, r) => n + r.cells.length, 0);
-  const unregionedCells = cellCount - cellsInRegions;
-
   // Constraint type breakdown
   const constraintCounts = new Map<string, number>();
   for (const r of regions) {
@@ -1707,16 +1877,6 @@ function PuzzleInfoSheet({
                       : "\u2014"}
                   </td>
                 </tr>
-                {unregionedCells > 0 && (
-                  <tr>
-                    <td className="flex items-center py-0.5 pr-6 text-neutral-500">
-                      Unregioned cells
-                    </td>
-                    <td className="py-0.5 text-right font-medium text-amber-600">
-                      {unregionedCells}
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </section>

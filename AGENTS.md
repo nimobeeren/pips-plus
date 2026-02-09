@@ -1,2 +1,2 @@
-- Use the Playwright CLI skill to validate your results when possible.
+- Use the Playwright CLI skill when testing in the browser.
 - Prefer shadcn/ui components over making your own. Use the shadcn CLI to find and add new components when needed.
