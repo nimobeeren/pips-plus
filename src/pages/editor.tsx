@@ -1,3 +1,4 @@
+import { CodeEditorModal } from "@/components/code-editor-modal";
 import {
   EditorBoard,
   type EditorDomino,
@@ -50,9 +51,9 @@ import type {
 } from "@/types";
 import { cellKey, getCoveredCells } from "@/types";
 import {
+  Braces,
   Check,
   ChevronLeft,
-  ClipboardCopy,
   Grid3x3,
   Link,
   Pencil,
@@ -174,6 +175,12 @@ type EditorAction =
       placements: DominoPlacement[];
     }
   | { type: "CHECK" }
+  | {
+      type: "LOAD_FROM_CODE";
+      cells: [number, number][];
+      regions: Region[];
+      dominoes: EditorDomino[];
+    }
   | { type: "CLEAR" };
 
 function initState(): EditorState {
@@ -507,6 +514,24 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       };
     }
 
+    case "LOAD_FROM_CODE": {
+      const newCells = new Set<string>();
+      for (const [r, c] of action.cells) {
+        newCells.add(cellKey(r, c));
+      }
+      return {
+        ...state,
+        cells: newCells,
+        regions: action.regions,
+        dominoes: action.dominoes,
+        checkState: "unchecked",
+        checkValid: false,
+        violatedRegions: [],
+        nextRegionIndex: action.regions.length,
+        nextDominoIndex: action.dominoes.length + 1,
+      };
+    }
+
     case "CLEAR":
       clearEditorState();
       return {
@@ -531,6 +556,7 @@ export function EditorPage() {
   const navigate = useNavigate();
   const [state, dispatch] = useReducer(reducer, undefined, initState);
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
+  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
 
   // Auto-save editor state to localStorage on every change
   useEffect(() => {
@@ -690,11 +716,139 @@ export function EditorPage() {
     return { cells, regions: state.regions, dominoes: dominoDefs };
   }, [state.cells, state.regions, state.dominoes]);
 
-  const handleCopyJSON = useCallback(() => {
-    const puzzle = buildPuzzle();
-    if (!puzzle) return;
-    navigator.clipboard.writeText(JSON.stringify(puzzle, null, 2));
-  }, [buildPuzzle]);
+  const buildEditorJson = useCallback((): string => {
+    const cells: [number, number][] = [];
+    for (const key of state.cells) {
+      const [r, c] = key.split(",").map(Number);
+      cells.push([r, c]);
+    }
+    const data = {
+      cells,
+      regions: state.regions,
+      dominoes: state.dominoes.map((d) => ({
+        id: d.id,
+        values: d.values,
+        row: d.row,
+        col: d.col,
+        orientation: d.orientation,
+      })),
+    };
+    return JSON.stringify(data, null, 2);
+  }, [state.cells, state.regions, state.dominoes]);
+
+  const codeEditorJson = buildEditorJson();
+
+  const validatePuzzleJson = useCallback((json: string): string | null => {
+    try {
+      const parsed = JSON.parse(json);
+
+      if (!parsed || typeof parsed !== "object") {
+        return "Expected a JSON object";
+      }
+
+      // Validate cells
+      if (!Array.isArray(parsed.cells)) {
+        return "Missing or invalid 'cells' array";
+      }
+      for (let i = 0; i < parsed.cells.length; i++) {
+        const c = parsed.cells[i];
+        if (
+          !Array.isArray(c) ||
+          c.length !== 2 ||
+          typeof c[0] !== "number" ||
+          typeof c[1] !== "number"
+        ) {
+          return `Invalid cell at index ${i}: expected [row, col]`;
+        }
+      }
+
+      // Validate regions
+      if (!Array.isArray(parsed.regions)) {
+        return "Missing or invalid 'regions' array";
+      }
+      for (let i = 0; i < parsed.regions.length; i++) {
+        const r = parsed.regions[i];
+        if (!r || typeof r !== "object") {
+          return `Invalid region at index ${i}`;
+        }
+        if (!Array.isArray(r.cells)) {
+          return `Region ${i}: missing 'cells' array`;
+        }
+        if (!r.constraint || typeof r.constraint !== "object") {
+          return `Region ${i}: missing 'constraint'`;
+        }
+        const validKinds = [
+          "sum",
+          "product",
+          "equal",
+          "not-equal",
+          "greater",
+          "less",
+          "mirror",
+          "none",
+        ];
+        if (!validKinds.includes(r.constraint.kind)) {
+          return `Region ${i}: invalid constraint kind '${r.constraint.kind}'`;
+        }
+      }
+
+      // Validate dominoes
+      if (!Array.isArray(parsed.dominoes)) {
+        return "Missing or invalid 'dominoes' array";
+      }
+      for (let i = 0; i < parsed.dominoes.length; i++) {
+        const d = parsed.dominoes[i];
+        if (!d || typeof d !== "object") {
+          return `Invalid domino at index ${i}`;
+        }
+        if (!Array.isArray(d.values) || d.values.length !== 2) {
+          return `Domino ${i}: 'values' must be [pip, pip]`;
+        }
+        for (const v of d.values) {
+          if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > 6) {
+            return `Domino ${i}: pip values must be integers 0-6`;
+          }
+        }
+        if (typeof d.row !== "number" || typeof d.col !== "number") {
+          return `Domino ${i}: missing 'row' or 'col'`;
+        }
+        if (d.orientation !== 0 && d.orientation !== 90) {
+          return `Domino ${i}: 'orientation' must be 0 or 90`;
+        }
+      }
+
+      return null;
+    } catch {
+      return "Invalid JSON";
+    }
+  }, []);
+
+  const handleCodeEditorChange = useCallback((json: string) => {
+    try {
+      const parsed = JSON.parse(json);
+      const cells: [number, number][] = parsed.cells;
+      const regions: Region[] = parsed.regions.map(
+        (r: Record<string, unknown>, i: number) => ({
+          id: (r.id as string) || String.fromCharCode(65 + i),
+          cells: r.cells,
+          constraint: r.constraint,
+          color: (r.color as string) || getRegionColor(i),
+        }),
+      );
+      const dominoes: EditorDomino[] = parsed.dominoes.map(
+        (d: Record<string, unknown>, i: number) => ({
+          id: (d.id as string) || `d${String(i + 1).padStart(2, "0")}`,
+          values: d.values as [Pip, Pip],
+          row: d.row as number,
+          col: d.col as number,
+          orientation: d.orientation as 0 | 90,
+        }),
+      );
+      dispatch({ type: "LOAD_FROM_CODE", cells, regions, dominoes });
+    } catch {
+      // validation should have caught this
+    }
+  }, []);
 
   const handleCopyShareLink = useCallback(() => {
     const puzzle = buildPuzzle();
@@ -813,13 +967,12 @@ export function EditorPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={handleCopyJSON}
-                disabled={!hasDominoes}
+                onClick={() => setCodeEditorOpen(true)}
               >
-                <ClipboardCopy className="size-4" />
+                <Braces className="size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Copy puzzle JSON</TooltipContent>
+            <TooltipContent>Code editor</TooltipContent>
           </Tooltip>
 
           <Tooltip>
@@ -1036,6 +1189,14 @@ export function EditorPage() {
           </div>
         </div>
       </div>
+
+      <CodeEditorModal
+        open={codeEditorOpen}
+        onOpenChange={setCodeEditorOpen}
+        initialJson={codeEditorJson}
+        onJsonChange={handleCodeEditorChange}
+        validate={validatePuzzleJson}
+      />
     </TooltipProvider>
   );
 }
