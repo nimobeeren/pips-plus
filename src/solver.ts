@@ -485,3 +485,161 @@ export function validateSolution(
     violatedRegions,
   };
 }
+
+/**
+ * Result of analyzing a puzzle's difficulty and solvability.
+ */
+export interface AnalysisResult {
+  solvable: boolean;
+  solutionCount: number;
+  nodesExplored: number;
+  firstSolutionNodes: number;
+}
+
+/**
+ * Analyzes a puzzle by exhaustively searching for solutions.
+ * Returns difficulty metrics including node count and solution count.
+ * Stops after finding `maxSolutions` distinct board states.
+ */
+export function analyzePuzzle(
+  puzzle: Puzzle,
+  maxSolutions = 10,
+): AnalysisResult {
+  const totalCells = puzzle.cells.length;
+  if (puzzle.dominoes.length * 2 !== totalCells) {
+    return {
+      solvable: false,
+      solutionCount: 0,
+      nodesExplored: 0,
+      firstSolutionNodes: 0,
+    };
+  }
+
+  const cellSet = new Set(puzzle.cells.map(([r, c]) => cellKey(r, c)));
+  const board = new Map<string, Pip>();
+  const used = new Set<string>();
+  const seenBoards = new Set<string>();
+  let nodesExplored = 0;
+  let firstSolutionNodes = -1;
+
+  function boardFingerprint(): string {
+    return puzzle.cells
+      .map(([r, c]) => board.get(cellKey(r, c)) ?? "?")
+      .join(",");
+  }
+
+  function isFullyValid(): boolean {
+    for (const region of puzzle.regions) {
+      const vals: Pip[] = region.cells.map(
+        ([r, c]) => board.get(cellKey(r, c))!,
+      );
+      if (!validateConstraint(region.constraint, vals)) return false;
+    }
+    const groups = new Map<string, number[]>();
+    for (const region of puzzle.regions) {
+      if (region.constraint.kind === "mirror") {
+        const g = region.constraint.group;
+        if (!groups.has(g)) groups.set(g, []);
+        const s = region.cells.reduce(
+          (a, [r, c]) => a + board.get(cellKey(r, c))!,
+          0,
+        );
+        groups.get(g)!.push(s);
+      }
+    }
+    for (const [, sums] of groups) {
+      if (!sums.every((s) => s === sums[0])) return false;
+    }
+    return true;
+  }
+
+  function dfs(): boolean {
+    let firstEmpty: [number, number] | null = null;
+    for (const cell of puzzle.cells) {
+      if (!board.has(cellKey(cell[0], cell[1]))) {
+        firstEmpty = cell;
+        break;
+      }
+    }
+
+    if (!firstEmpty) {
+      if (used.size === puzzle.dominoes.length && isFullyValid()) {
+        const fp = boardFingerprint();
+        if (!seenBoards.has(fp)) {
+          seenBoards.add(fp);
+          if (firstSolutionNodes < 0) firstSolutionNodes = nodesExplored;
+        }
+        return seenBoards.size >= maxSolutions;
+      }
+      return false;
+    }
+
+    const [r, c] = firstEmpty;
+    const key = cellKey(r, c);
+    const neighbors: [number, number][] = [];
+    for (const [nr, nc] of [
+      [r - 1, c],
+      [r + 1, c],
+      [r, c - 1],
+      [r, c + 1],
+    ] as [number, number][]) {
+      if (cellSet.has(cellKey(nr, nc)) && !board.has(cellKey(nr, nc)))
+        neighbors.push([nr, nc]);
+    }
+    if (!neighbors.length) return false;
+
+    for (const [nr, nc] of neighbors) {
+      const nk = cellKey(nr, nc);
+      const tried = new Set<string>();
+
+      for (const domino of puzzle.dominoes) {
+        if (used.has(domino.id)) continue;
+        const [a, b] = domino.values;
+
+        for (const [v1, v2] of a === b
+          ? [[a, b]]
+          : [
+              [a, b],
+              [b, a],
+            ]) {
+          const tk = `${v1},${v2}`;
+          if (tried.has(tk)) continue;
+          tried.add(tk);
+          nodesExplored++;
+
+          board.set(key, v1 as Pip);
+          board.set(nk, v2 as Pip);
+          used.add(domino.id);
+
+          const rem = puzzle.dominoes.filter((d) => !used.has(d.id));
+          if (
+            checkConstraints(puzzle, board) &&
+            !hasIsolatedCell(puzzle.cells, board, cellSet) &&
+            checkForwardFeasibility(puzzle, board, rem)
+          ) {
+            if (dfs()) {
+              board.delete(key);
+              board.delete(nk);
+              used.delete(domino.id);
+              return true;
+            }
+          }
+          board.delete(key);
+          board.delete(nk);
+          used.delete(domino.id);
+        }
+      }
+    }
+    return false;
+  }
+
+  dfs();
+  if (firstSolutionNodes < 0) firstSolutionNodes = nodesExplored;
+
+  return {
+    solvable: seenBoards.size > 0,
+    solutionCount: seenBoards.size,
+    nodesExplored,
+    firstSolutionNodes,
+  };
+}

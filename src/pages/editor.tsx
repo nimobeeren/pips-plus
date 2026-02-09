@@ -23,6 +23,7 @@ import {
   Popover,
   PopoverAnchor,
   PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
 import {
   Select,
@@ -38,8 +39,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { CELL_SIZE } from "@/components/domino";
+import { PipDots } from "@/components/pip-dots";
 import { generateDominoes } from "@/lib/design-solver";
 import { encodePuzzle, getRegionColor } from "@/lib/puzzle-codec";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { analyzePuzzle, type AnalysisResult } from "@/solver";
 import { validateConstraint, validateMirrorGroups } from "@/solver";
 import type {
   Constraint,
@@ -55,7 +65,10 @@ import {
   Check,
   ChevronLeft,
   Grid3x3,
+  HelpCircle,
+  Info,
   Link,
+  Loader2,
   Pencil,
   RectangleHorizontal,
   RotateCcw,
@@ -64,7 +77,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import React, { useCallback, useEffect, useReducer, useState } from "react";
 import { useNavigate } from "react-router";
 
 const GRID_ROWS = 8;
@@ -557,6 +570,11 @@ export function EditorPage() {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
   const [codeEditorOpen, setCodeEditorOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null,
+  );
+  const [analyzing, setAnalyzing] = useState(false);
 
   // Auto-save editor state to localStorage on every change
   useEffect(() => {
@@ -715,6 +733,24 @@ export function EditorPage() {
     }));
     return { cells, regions: state.regions, dominoes: dominoDefs };
   }, [state.cells, state.regions, state.dominoes]);
+
+  // Run analysis when info sheet opens
+  useEffect(() => {
+    if (!infoOpen) return;
+    const puzzle = buildPuzzle();
+    if (!puzzle || puzzle.dominoes.length === 0) {
+      setAnalysisResult(null);
+      return;
+    }
+    setAnalyzing(true);
+    // Run in a microtask to keep UI responsive for the sheet animation
+    const id = setTimeout(() => {
+      const result = analyzePuzzle(puzzle, 10);
+      setAnalysisResult(result);
+      setAnalyzing(false);
+    }, 50);
+    return () => clearTimeout(id);
+  }, [infoOpen, buildPuzzle]);
 
   const buildEditorJson = useCallback((): string => {
     const cells: [number, number][] = [];
@@ -992,6 +1028,19 @@ export function EditorPage() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setInfoOpen(true)}
+              >
+                <Info className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Puzzle info</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
                 variant="default"
                 size="sm"
                 onClick={handlePlaytest}
@@ -1196,6 +1245,16 @@ export function EditorPage() {
         initialJson={codeEditorJson}
         onJsonChange={handleCodeEditorChange}
         validate={validatePuzzleJson}
+      />
+
+      <PuzzleInfoSheet
+        open={infoOpen}
+        onOpenChange={setInfoOpen}
+        cells={state.cells}
+        regions={state.regions}
+        dominoes={state.dominoes}
+        analysisResult={analysisResult}
+        analyzing={analyzing}
       />
     </TooltipProvider>
   );
@@ -1474,5 +1533,325 @@ function DominoEditPopup({
         Delete
       </Button>
     </div>
+  );
+}
+
+function InfoTooltip({ children }: { children: React.ReactNode }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="ml-1 inline-flex items-center text-neutral-400 hover:text-neutral-600">
+          <HelpCircle className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" className="max-w-64 text-xs text-neutral-600">
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function getDifficultyLabel(
+  result: AnalysisResult,
+  dominoCount: number,
+): { label: string; color: string; tooltip?: string } {
+  if (!result.solvable) {
+    return {
+      label: "Unsolvable",
+      color: "text-red-600",
+      tooltip:
+        "No valid way to place all dominoes on the grid while satisfying every region constraint. Try loosening a constraint or changing the domino set.",
+    };
+  }
+
+  // Scale by puzzle size: normalize nodes per domino
+  const nodesPerDomino = result.nodesExplored / Math.max(dominoCount, 1);
+
+  if (nodesPerDomino < 50) return { label: "Easy", color: "text-green-600" };
+  if (nodesPerDomino < 500)
+    return { label: "Medium", color: "text-yellow-600" };
+  if (nodesPerDomino < 2000) return { label: "Hard", color: "text-orange-600" };
+  if (nodesPerDomino < 10000)
+    return { label: "Very Hard", color: "text-red-500" };
+  return { label: "Extreme", color: "text-red-700" };
+}
+
+function PuzzleInfoSheet({
+  open,
+  onOpenChange,
+  cells,
+  regions,
+  dominoes,
+  analysisResult,
+  analyzing,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  cells: Set<string>;
+  regions: Region[];
+  dominoes: EditorDomino[];
+  analysisResult: AnalysisResult | null;
+  analyzing: boolean;
+}) {
+  const cellCount = cells.size;
+  const dominoCount = dominoes.length;
+  const regionCount = regions.length;
+  const cellsInRegions = regions.reduce((n, r) => n + r.cells.length, 0);
+  const unregionedCells = cellCount - cellsInRegions;
+
+  // Constraint type breakdown
+  const constraintCounts = new Map<string, number>();
+  for (const r of regions) {
+    const kind = r.constraint.kind;
+    constraintCounts.set(kind, (constraintCounts.get(kind) ?? 0) + 1);
+  }
+
+  // Cross-region domino count
+  const regionMap = new Map<string, string>();
+  for (const r of regions) {
+    for (const [row, col] of r.cells) {
+      regionMap.set(cellKey(row, col), r.id);
+    }
+  }
+  let crossRegionCount = 0;
+  for (const d of dominoes) {
+    const covered = getCoveredCells(d.row, d.col, d.orientation, d.values);
+    const r0 = regionMap.get(cellKey(covered[0].cell[0], covered[0].cell[1]));
+    const r1 = regionMap.get(cellKey(covered[1].cell[0], covered[1].cell[1]));
+    if (r0 && r1 && r0 !== r1) crossRegionCount++;
+  }
+
+  // Pip value distribution
+  const pipCounts = new Array(7).fill(0) as number[];
+  for (const d of dominoes) {
+    pipCounts[d.values[0]]++;
+    pipCounts[d.values[1]]++;
+  }
+
+  // Duplicate domino types
+  const typeCounts = new Map<string, number>();
+  for (const d of dominoes) {
+    const key =
+      d.values[0] <= d.values[1]
+        ? `${d.values[0]}|${d.values[1]}`
+        : `${d.values[1]}|${d.values[0]}`;
+    typeCounts.set(key, (typeCounts.get(key) ?? 0) + 1);
+  }
+  const duplicateTypes = [...typeCounts.entries()].filter(([, c]) => c > 1);
+
+  const constraintLabels: Record<string, string> = {
+    sum: "Sum",
+    product: "Product",
+    equal: "Equal",
+    "not-equal": "Not Equal",
+    greater: "Greater",
+    less: "Less",
+    mirror: "Mirror",
+    none: "None",
+  };
+
+  const difficulty = analysisResult
+    ? getDifficultyLabel(analysisResult, dominoCount)
+    : null;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Puzzle Info</SheetTitle>
+          <SheetDescription>Metrics and difficulty analysis</SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-col gap-6 px-4 pb-4">
+          {/* Structure */}
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              Structure
+            </h3>
+            <table className="text-sm">
+              <tbody>
+                <tr>
+                  <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                    Cells
+                  </td>
+                  <td className="py-0.5 text-right font-medium">{cellCount}</td>
+                </tr>
+                <tr>
+                  <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                    Dominoes
+                  </td>
+                  <td className="py-0.5 text-right font-medium">
+                    {dominoCount}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                    Regions
+                  </td>
+                  <td className="py-0.5 text-right font-medium">
+                    {regionCount}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                    Cross-region dominoes
+                    <InfoTooltip>
+                      Dominoes that span two different regions. More
+                      cross-region dominoes means tighter coupling between
+                      constraints, which generally makes the puzzle harder.
+                    </InfoTooltip>
+                  </td>
+                  <td className="py-0.5 text-right font-medium">
+                    {dominoCount > 0
+                      ? `${crossRegionCount} / ${dominoCount}`
+                      : "\u2014"}
+                  </td>
+                </tr>
+                {unregionedCells > 0 && (
+                  <tr>
+                    <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                      Unregioned cells
+                    </td>
+                    <td className="py-0.5 text-right font-medium text-amber-600">
+                      {unregionedCells}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          {/* Constraints */}
+          {regionCount > 0 && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Constraints
+              </h3>
+              <table className="text-sm">
+                <tbody>
+                  {[...constraintCounts.entries()].map(([kind, count]) => (
+                    <tr key={kind}>
+                      <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                        {constraintLabels[kind] ?? kind}
+                      </td>
+                      <td className="py-0.5 text-right font-medium">{count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+
+          {/* Pip distribution */}
+          {dominoCount > 0 && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Pip Distribution
+              </h3>
+              <div className="flex gap-2">
+                {pipCounts.map((count, pip) => (
+                  <div key={pip} className="flex flex-col items-center gap-1">
+                    <div
+                      className={`flex items-center justify-center rounded border ${
+                        count > 0
+                          ? "border-neutral-300 bg-white"
+                          : "border-neutral-200 bg-neutral-50 opacity-40"
+                      }`}
+                      style={{ width: 32, height: 32 }}
+                    >
+                      <div
+                        style={{ width: 22, height: 22 }}
+                        className="relative"
+                      >
+                        <PipDots value={pip as Pip} size={22} />
+                      </div>
+                    </div>
+                    <span className="text-xs tabular-nums text-neutral-600">
+                      &times;{count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {duplicateTypes.length > 0 && (
+                <p className="mt-2 text-xs text-neutral-500">
+                  Duplicate types:{" "}
+                  {duplicateTypes
+                    .map(([type, count]) => `${type} (\u00d7${count})`)
+                    .join(", ")}
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* Difficulty analysis */}
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+              Difficulty
+            </h3>
+            {analyzing ? (
+              <div className="flex items-center gap-2 text-sm text-neutral-500">
+                <Loader2 className="size-4 animate-spin" />
+                Analyzing...
+              </div>
+            ) : analysisResult ? (
+              <>
+                <table className="text-sm">
+                  <tbody>
+                    <tr>
+                      <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                        Number of solutions
+                      </td>
+                      <td className="py-0.5 text-right font-medium">
+                        {analysisResult.solutionCount === 0
+                          ? "0"
+                          : analysisResult.solutionCount >= 10
+                            ? "10+"
+                            : analysisResult.solutionCount}
+                        {analysisResult.solutionCount === 1 && " (unique)"}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="flex items-center py-0.5 pr-6 text-neutral-500">
+                        Search depth
+                        <InfoTooltip>
+                          Total placement attempts the solver explored before
+                          exhausting all possibilities. Higher means the puzzle
+                          resists shortcuts and requires exploring more dead
+                          ends.
+                        </InfoTooltip>
+                      </td>
+                      <td className="py-0.5 text-right font-medium">
+                        {analysisResult.nodesExplored.toLocaleString()}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="flex items-center py-0.5 pr-6 font-semibold text-neutral-500">
+                        Level
+                        {difficulty?.tooltip && (
+                          <InfoTooltip>{difficulty.tooltip}</InfoTooltip>
+                        )}
+                      </td>
+                      <td className="py-0.5 text-right font-medium">
+                        <span className={`font-semibold ${difficulty?.color}`}>
+                          {difficulty?.label}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <p className="text-sm text-neutral-400">
+                {dominoCount === 0
+                  ? "Add dominoes to analyze difficulty."
+                  : cellCount !== dominoCount * 2
+                    ? `Cell/domino mismatch: ${cellCount} cells, ${dominoCount * 2} domino halves.`
+                    : "No analysis available."}
+              </p>
+            )}
+          </section>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
