@@ -811,23 +811,23 @@ export function EditorPage() {
     return { cells, regions: state.regions, dominoes: dominoDefs };
   }, [state.cells, state.regions, state.dominoes]);
 
-  // Run analysis when info sheet opens
-  useEffect(() => {
-    if (!infoOpen) return;
-    const puzzle = buildPuzzle();
-    if (!puzzle || puzzle.dominoes.length === 0) {
-      setAnalysisResult(null);
-      return;
-    }
-    setAnalyzing(true);
-    // Run in a microtask to keep UI responsive for the sheet animation
-    const id = setTimeout(() => {
-      const result = analyzePuzzle(puzzle, 10);
-      setAnalysisResult(result);
-      setAnalyzing(false);
-    }, 50);
-    return () => clearTimeout(id);
-  }, [infoOpen, buildPuzzle]);
+  // Disabled: can cause the page to hang on hard puzzles
+  // useEffect(() => {
+  //   if (!infoOpen) return;
+  //   const puzzle = buildPuzzle();
+  //   if (!puzzle || puzzle.dominoes.length === 0) {
+  //     setAnalysisResult(null);
+  //     return;
+  //   }
+  //   setAnalyzing(true);
+  //   // Run in a microtask to keep UI responsive for the sheet animation
+  //   const id = setTimeout(() => {
+  //     const result = analyzePuzzle(puzzle, 10);
+  //     setAnalysisResult(result);
+  //     setAnalyzing(false);
+  //   }, 50);
+  //   return () => clearTimeout(id);
+  // }, [infoOpen, buildPuzzle]);
 
   const buildEditorJson = useCallback((): string => {
     const cells: [number, number][] = [];
@@ -1943,8 +1943,8 @@ function PuzzleInfoSheet({
             </section>
           )}
 
-          {/* Difficulty analysis */}
-          <section>
+          {/* Difficulty analysis - disabled: can cause the page to hang on hard puzzles */}
+          {/* <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
               Difficulty
             </h3>
@@ -2009,7 +2009,7 @@ function PuzzleInfoSheet({
                     : "No analysis available."}
               </p>
             )}
-          </section>
+          </section> */}
         </div>
       </SheetContent>
     </Sheet>
