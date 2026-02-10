@@ -7,7 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { PuzzleResult } from "@/lib/game-storage";
+import { isPuzzleSolved, type PuzzleResult } from "@/lib/game-storage";
+import { difficulties, puzzles } from "@/puzzles";
 import { useNavigate } from "react-router";
 
 interface ResultsModalProps {
@@ -35,6 +36,9 @@ export function ResultsModal({
 }: ResultsModalProps) {
   const navigate = useNavigate();
 
+  const existingPuzzles = difficulties.filter((d) => d in puzzles);
+  const allPuzzlesSolved = existingPuzzles.every((d) => isPuzzleSolved(d));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xs text-center">
@@ -48,8 +52,21 @@ export function ResultsModal({
             puzzle in {formatTime(result.solveTimeMs)}.
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="sm:justify-center">
-          <Button onClick={() => navigate("/")}>Solve Another Puzzle</Button>
+        {allPuzzlesSolved && !puzzleName.startsWith("custom:") && (
+          <p className="text-sm text-neutral-600">
+            You&apos;ve completed all puzzles! The Puzzle Editor is now
+            unlocked.
+          </p>
+        )}
+        <DialogFooter className="flex-col gap-2 sm:justify-center">
+          {allPuzzlesSolved && !puzzleName.startsWith("custom:") && (
+            <Button variant="outline" onClick={() => navigate("/editor")}>
+              Open Puzzle Editor
+            </Button>
+          )}
+          <Button onClick={() => navigate("/")}>
+            {allPuzzlesSolved ? "Back to Home" : "Solve Another Puzzle"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
