@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { puzzles } from "./puzzles";
-
-const starterPuzzle = puzzles.easy;
-const hardPuzzle = puzzles.hard;
 import {
   solve,
   validateConstraint,
@@ -40,28 +37,38 @@ describe("validateConstraint", () => {
     );
   });
 
-  test("greater: passes when all values > target", () => {
+  test("greater: passes when sum of values > target", () => {
     expect(validateConstraint({ kind: "greater", target: 3 }, [4, 5, 6])).toBe(
       true,
     );
   });
 
-  test("greater: fails when any value <= target", () => {
-    expect(validateConstraint({ kind: "greater", target: 3 }, [4, 3, 6])).toBe(
+  test("greater: fails when sum of values <= target", () => {
+    expect(validateConstraint({ kind: "greater", target: 3 }, [1, 1, 1])).toBe(
       false,
     );
   });
 
-  test("less: passes when all values < target", () => {
-    expect(validateConstraint({ kind: "less", target: 4 }, [0, 1, 3])).toBe(
+  test("greater: passes 5+4 > 5", () => {
+    expect(validateConstraint({ kind: "greater", target: 5 }, [5, 4])).toBe(
       true,
     );
   });
 
-  test("less: fails when any value >= target", () => {
+  test("less: passes when sum of values < target", () => {
+    expect(validateConstraint({ kind: "less", target: 5 }, [0, 1, 3])).toBe(
+      true,
+    );
+  });
+
+  test("less: fails when sum of values >= target", () => {
     expect(validateConstraint({ kind: "less", target: 4 }, [3, 4, 1])).toBe(
       false,
     );
+  });
+
+  test("less: fails 4+4 < 5", () => {
+    expect(validateConstraint({ kind: "less", target: 5 }, [4, 4])).toBe(false);
   });
 
   test("none: always passes", () => {
@@ -399,21 +406,21 @@ describe("solve", () => {
     expect(solve(puzzle)).toBeNull();
   });
 
-  test("starter puzzle is solvable", () => {
-    const result = solve(starterPuzzle);
+  test("easy puzzle is solvable", () => {
+    const result = solve(puzzles.easy);
     expect(result).not.toBeNull();
-    expect(result).toHaveLength(starterPuzzle.dominoes.length);
+    expect(result).toHaveLength(puzzles.easy.dominoes.length);
 
-    const validation = validateSolution(starterPuzzle, result!);
+    const validation = validateSolution(puzzles.easy, result!);
     expect(validation.valid).toBe(true);
   });
 
   test("hard puzzle is solvable", () => {
-    const result = solve(hardPuzzle);
+    const result = solve(puzzles.hard);
     expect(result).not.toBeNull();
-    expect(result).toHaveLength(hardPuzzle.dominoes.length);
+    expect(result).toHaveLength(puzzles.hard.dominoes.length);
 
-    const validation = validateSolution(hardPuzzle, result!);
+    const validation = validateSolution(puzzles.hard, result!);
     expect(validation.valid).toBe(true);
   });
 });

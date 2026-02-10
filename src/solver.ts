@@ -27,9 +27,9 @@ export function validateConstraint(
     case "product":
       return values.reduce<number>((a, b) => a * b, 1) === constraint.target;
     case "greater":
-      return values.every((v) => v > constraint.target);
+      return values.reduce<number>((a, b) => a + b, 0) > constraint.target;
     case "less":
-      return values.every((v) => v < constraint.target);
+      return values.reduce<number>((a, b) => a + b, 0) < constraint.target;
     case "mirror":
       // Cross-region constraint; single-region validation always passes.
       // Actual validation happens in validateMirrorGroups.
@@ -116,10 +116,20 @@ function validatePartialConstraint(
       if (remainingProduct > 6 ** emptyCells) return false;
       return true;
     }
-    case "greater":
-      return values.every((v) => v > constraint.target);
-    case "less":
-      return values.every((v) => v < constraint.target);
+    case "greater": {
+      const sum = values.reduce<number>((a, b) => a + b, 0);
+      if (emptyCells === 0) return sum > constraint.target;
+      // Even with max remaining values (6 each), can we exceed the target?
+      if (sum + emptyCells * 6 <= constraint.target) return false;
+      return true;
+    }
+    case "less": {
+      const sum = values.reduce<number>((a, b) => a + b, 0);
+      if (emptyCells === 0) return sum < constraint.target;
+      // Even with min remaining values (0 each), already at or above target?
+      if (sum >= constraint.target) return false;
+      return true;
+    }
     case "mirror":
       // Cross-region; partial pruning handled separately in checkMirrorPartial
       return true;
