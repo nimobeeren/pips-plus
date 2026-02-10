@@ -1,0 +1,3 @@
+- mirror regions have different colors after clicking play from editor
+- can't rotate dominoes more than 90 degrees in editor
+- cell background bug for some shapes with holes
