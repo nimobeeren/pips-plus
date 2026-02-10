@@ -1,4 +1,4 @@
-import type { Pip, Region } from "@/types";
+import type { Orientation, Pip, Region } from "@/types";
 import { cellKey } from "@/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -15,7 +15,7 @@ export type EditorTool = "cell" | "region" | "domino";
 export interface EditorDomino {
   id: string;
   values: [Pip, Pip];
-  orientation: 0 | 90;
+  orientation: Orientation;
   row: number;
   col: number;
 }

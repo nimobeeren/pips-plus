@@ -58,6 +58,7 @@ import type {
   Constraint,
   DominoDef,
   DominoPlacement,
+  Orientation,
   Pip,
   Puzzle,
   Region,
@@ -420,7 +421,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       const canH = col + 1 < gridCols && !occupied.has(cellKey(row, col + 1));
       const canV = row + 1 < gridRows && !occupied.has(cellKey(row + 1, col));
 
-      let orientation: 0 | 90;
+      let orientation: Orientation;
       if (canH) {
         orientation = 0;
       } else if (canV) {
@@ -444,10 +445,18 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         ...state,
         dominoes: state.dominoes.map((d) => {
           if (d.id !== id) return d;
-          const newOrientation: 0 | 90 = d.orientation === 0 ? 90 : 0;
+          const newOrientation = ((d.orientation + 90) % 360) as Orientation;
 
-          if (newOrientation === 0 && d.col + 1 >= gridCols) return d;
-          if (newOrientation === 90 && d.row + 1 >= gridRows) return d;
+          if (
+            (newOrientation === 0 || newOrientation === 180) &&
+            d.col + 1 >= gridCols
+          )
+            return d;
+          if (
+            (newOrientation === 90 || newOrientation === 270) &&
+            d.row + 1 >= gridRows
+          )
+            return d;
 
           const newCells = getCoveredCells(
             d.row,
@@ -473,8 +482,16 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
 
       // Check bounds
       if (row < 0 || col < 0) return state;
-      if (domino.orientation === 0 && col + 1 >= gridCols) return state;
-      if (domino.orientation === 90 && row + 1 >= gridRows) return state;
+      if (
+        (domino.orientation === 0 || domino.orientation === 180) &&
+        col + 1 >= gridCols
+      )
+        return state;
+      if (
+        (domino.orientation === 90 || domino.orientation === 270) &&
+        row + 1 >= gridRows
+      )
+        return state;
       if (row >= gridRows || col >= gridCols) return state;
 
       // Check overlap
@@ -529,7 +546,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         return {
           id: action.dominoes[i].id,
           values: action.dominoes[i].values,
-          orientation: (horizontal ? 0 : 90) as 0 | 90,
+          orientation: (horizontal ? 0 : 90) as Orientation,
           row: Math.min(p.cells[0][0], p.cells[1][0]),
           col: Math.min(p.cells[0][1], p.cells[1][1]),
         };
@@ -925,8 +942,13 @@ export function EditorPage() {
         if (typeof d.row !== "number" || typeof d.col !== "number") {
           return `Domino ${i}: missing 'row' or 'col'`;
         }
-        if (d.orientation !== 0 && d.orientation !== 90) {
-          return `Domino ${i}: 'orientation' must be 0 or 90`;
+        if (
+          d.orientation !== 0 &&
+          d.orientation !== 90 &&
+          d.orientation !== 180 &&
+          d.orientation !== 270
+        ) {
+          return `Domino ${i}: 'orientation' must be 0, 90, 180, or 270`;
         }
       }
 
@@ -954,7 +976,7 @@ export function EditorPage() {
           values: d.values as [Pip, Pip],
           row: d.row as number,
           col: d.col as number,
-          orientation: d.orientation as 0 | 90,
+          orientation: d.orientation as Orientation,
         }),
       );
       dispatch({ type: "LOAD_FROM_CODE", cells, regions, dominoes });
