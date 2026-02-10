@@ -172,7 +172,7 @@ export function CodeEditorModal({
           <div>
             <SheetTitle className="text-base">Code Editor</SheetTitle>
             <SheetDescription className="text-xs">
-              Edit the puzzle JSON directly
+              Edit the puzzle as code
             </SheetDescription>
           </div>
           <div className="flex items-center gap-1">

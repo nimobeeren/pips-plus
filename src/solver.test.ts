@@ -415,12 +415,12 @@ describe("solve", () => {
     expect(validation.valid).toBe(true);
   });
 
-  test("hard puzzle is solvable", () => {
-    const result = solve(puzzles.hard);
+  test("heart puzzle is solvable", () => {
+    const result = solve(puzzles.heart);
     expect(result).not.toBeNull();
-    expect(result).toHaveLength(puzzles.hard.dominoes.length);
+    expect(result).toHaveLength(puzzles.heart.dominoes.length);
 
-    const validation = validateSolution(puzzles.hard, result!);
+    const validation = validateSolution(puzzles.heart, result!);
     expect(validation.valid).toBe(true);
   });
 });
