@@ -22,6 +22,9 @@ export function HomePage() {
 
   const isSolved = difficulty in puzzles && isPuzzleSolved(difficulty);
 
+  const existingPuzzles = difficulties.filter((d) => d in puzzles);
+  const allPuzzlesSolved = existingPuzzles.every((d) => isPuzzleSolved(d));
+
   const handleReset = useCallback(() => {
     localStorage.clear();
     setDifficulty("easy");
@@ -80,6 +83,10 @@ export function HomePage() {
           variant="secondary"
           onClick={() => navigate("/editor")}
           size="sm"
+          disabled={!allPuzzlesSolved}
+          title={
+            allPuzzlesSolved ? undefined : "Complete all puzzles to unlock"
+          }
         >
           Puzzle Editor
         </Button>
