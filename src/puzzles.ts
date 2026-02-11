@@ -107,7 +107,7 @@ export const puzzles: Record<string, Puzzle> = {
         ],
         constraint: {
           kind: "sum",
-          target: 14,
+          target: 2,
         },
         color: "#f48fb1",
       },
@@ -120,7 +120,7 @@ export const puzzles: Record<string, Puzzle> = {
         ],
         constraint: {
           kind: "sum",
-          target: 2,
+          target: 14,
         },
         color: "#80deea",
       },
