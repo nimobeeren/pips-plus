@@ -3,7 +3,6 @@ import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router";
 
 interface GameControlsProps {
-  onSolve: () => void;
   onClear: () => void;
   backTo?: string;
   solved?: boolean;
@@ -11,7 +10,6 @@ interface GameControlsProps {
 }
 
 export function GameControls({
-  onSolve,
   onClear,
   backTo,
   solved,
@@ -34,16 +32,6 @@ export function GameControls({
       {solved && onViewResults && (
         <Button onClick={onViewResults} variant="outline" size="sm">
           View Results
-        </Button>
-      )}
-      {!solved && (
-        <Button
-          onClick={onSolve}
-          variant="outline"
-          size="sm"
-          data-testid="solve-button"
-        >
-          Show Solution
         </Button>
       )}
       <Button

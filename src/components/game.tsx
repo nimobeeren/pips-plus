@@ -9,7 +9,6 @@ import {
   savePuzzleResult,
   type PuzzleResult,
 } from "@/lib/game-storage";
-import { solve } from "@/solver";
 import type { Puzzle } from "@/types";
 import { isHorizontal } from "@/types";
 import {
@@ -198,13 +197,6 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
   const boardRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
-
-  const handleSolve = useCallback(() => {
-    const solution = solve(puzzle);
-    if (solution) {
-      dispatch({ type: "SHOW_SOLUTION", placements: solution });
-    }
-  }, [puzzle]);
 
   const handleClear = useCallback(() => {
     dispatch({ type: "CLEAR" });
@@ -537,7 +529,6 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     <div className="flex min-h-svh flex-col">
       {/* Controls at top */}
       <GameControls
-        onSolve={handleSolve}
         onClear={handleClear}
         backTo={backTo}
         solved={!!puzzleResult}

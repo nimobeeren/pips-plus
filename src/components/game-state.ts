@@ -44,7 +44,6 @@ export type GameAction =
   | { type: "MOVE_CURSOR"; direction: "up" | "down" | "left" | "right" }
   | { type: "CONFIRM_PLACEMENT" }
   | { type: "CANCEL_HELD" }
-  | { type: "SHOW_SOLUTION"; placements: DominoPlacement[] }
   | { type: "CLEAR" };
 
 export function initState(puzzle: Puzzle): GameState {
@@ -513,44 +512,6 @@ export function reducer(state: GameState, action: GameAction): GameState {
 
     case "CANCEL_HELD": {
       return { ...state, heldDominoId: null, keyboardCursor: null };
-    }
-
-    case "SHOW_SOLUTION": {
-      const nextDominoes = state.dominoes.map((d, i) => {
-        const placement = action.placements.find((p) => p.dominoId === d.id);
-        if (!placement) return d;
-
-        const [cell1, cell2] = placement.cells;
-        const [val1] = placement.values;
-        const [a] = d.values;
-
-        const isH = cell1[0] === cell2[0];
-        let orientation: Orientation;
-        if (isH) {
-          orientation = val1 === a ? 0 : 180;
-        } else {
-          orientation = val1 === a ? 90 : 270;
-        }
-
-        const anchorRow = Math.min(cell1[0], cell2[0]);
-        const anchorCol = Math.min(cell1[1], cell2[1]);
-
-        return {
-          ...d,
-          orientation,
-          zOrder: state.nextZOrder + i,
-          location: { type: "board" as const, row: anchorRow, col: anchorCol },
-        };
-      });
-      return {
-        ...state,
-        dominoes: nextDominoes,
-        nextZOrder: state.nextZOrder + nextDominoes.length,
-        status: "solved",
-        violatedRegions: [],
-        heldDominoId: null,
-        keyboardCursor: null,
-      };
     }
 
     case "CLEAR": {
