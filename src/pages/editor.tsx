@@ -58,11 +58,12 @@ import type {
   Constraint,
   DominoDef,
   DominoPlacement,
+  Orientation,
   Pip,
   Puzzle,
   Region,
 } from "@/types";
-import { cellKey, getCoveredCells } from "@/types";
+import { cellKey, getCoveredCells, rotateDomino } from "@/types";
 import {
   Braces,
   Check,
@@ -185,7 +186,7 @@ type EditorAction =
       gridRows: number;
       gridCols: number;
     }
-  | { type: "ROTATE_DOMINO"; id: string; gridRows: number; gridCols: number }
+  | { type: "ROTATE_DOMINO"; id: string; pivotFar: boolean }
   | {
       type: "MOVE_DOMINO";
       id: string;
@@ -420,7 +421,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       const canH = col + 1 < gridCols && !occupied.has(cellKey(row, col + 1));
       const canV = row + 1 < gridRows && !occupied.has(cellKey(row + 1, col));
 
-      let orientation: 0 | 90;
+      let orientation: Orientation;
       if (canH) {
         orientation = 0;
       } else if (canV) {
@@ -439,28 +440,60 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     }
 
     case "ROTATE_DOMINO": {
-      const { id, gridRows, gridCols } = action;
+      const { id, pivotFar } = action;
       return clearCheck({
         ...state,
         dominoes: state.dominoes.map((d) => {
           if (d.id !== id) return d;
-          const newOrientation: 0 | 90 = d.orientation === 0 ? 90 : 0;
 
-          if (newOrientation === 0 && d.col + 1 >= gridCols) return d;
-          if (newOrientation === 90 && d.row + 1 >= gridRows) return d;
-
-          const newCells = getCoveredCells(
+          // Resolve pivot cell (same logic as game)
+          const covered = getCoveredCells(
             d.row,
             d.col,
-            newOrientation,
+            d.orientation,
             d.values,
           );
+          const isFlipped = d.orientation === 180 || d.orientation === 270;
+          const pivotIdx = pivotFar !== isFlipped ? 1 : 0;
+          const pivotCell = covered[pivotIdx].cell;
+
           const occupied = getOccupiedCells(state.dominoes, id);
-          for (const { cell } of newCells) {
-            if (occupied.has(cellKey(cell[0], cell[1]))) return d;
+
+          // Try rotating 90°, 180°, 270° CW and use the first that fits
+          let current = { row: d.row, col: d.col, orientation: d.orientation };
+          for (let step = 0; step < 3; step++) {
+            const result = rotateDomino(
+              current.row,
+              current.col,
+              current.orientation,
+              d.values,
+              pivotCell,
+            );
+
+            const resultCells = getCoveredCells(
+              result.row,
+              result.col,
+              result.orientation,
+              d.values,
+            );
+            const fits = resultCells.every(
+              ({ cell }) =>
+                state.cells.has(cellKey(cell[0], cell[1])) &&
+                !occupied.has(cellKey(cell[0], cell[1])),
+            );
+
+            if (fits) {
+              return {
+                ...d,
+                row: result.row,
+                col: result.col,
+                orientation: result.orientation,
+              };
+            }
+            current = result;
           }
 
-          return { ...d, orientation: newOrientation };
+          return d;
         }),
       });
     }
@@ -473,8 +506,16 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
 
       // Check bounds
       if (row < 0 || col < 0) return state;
-      if (domino.orientation === 0 && col + 1 >= gridCols) return state;
-      if (domino.orientation === 90 && row + 1 >= gridRows) return state;
+      if (
+        (domino.orientation === 0 || domino.orientation === 180) &&
+        col + 1 >= gridCols
+      )
+        return state;
+      if (
+        (domino.orientation === 90 || domino.orientation === 270) &&
+        row + 1 >= gridRows
+      )
+        return state;
       if (row >= gridRows || col >= gridCols) return state;
 
       // Check overlap
@@ -529,7 +570,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         return {
           id: action.dominoes[i].id,
           values: action.dominoes[i].values,
-          orientation: (horizontal ? 0 : 90) as 0 | 90,
+          orientation: (horizontal ? 0 : 90) as Orientation,
           row: Math.min(p.cells[0][0], p.cells[1][0]),
           col: Math.min(p.cells[0][1], p.cells[1][1]),
         };
@@ -726,12 +767,11 @@ export function EditorPage() {
     [state.dominoPips],
   );
 
-  const handleDominoRotate = useCallback((id: string) => {
+  const handleDominoRotate = useCallback((id: string, pivotFar: boolean) => {
     dispatch({
       type: "ROTATE_DOMINO",
       id,
-      gridRows: GRID_ROWS,
-      gridCols: GRID_COLS,
+      pivotFar,
     });
   }, []);
 
@@ -925,8 +965,13 @@ export function EditorPage() {
         if (typeof d.row !== "number" || typeof d.col !== "number") {
           return `Domino ${i}: missing 'row' or 'col'`;
         }
-        if (d.orientation !== 0 && d.orientation !== 90) {
-          return `Domino ${i}: 'orientation' must be 0 or 90`;
+        if (
+          d.orientation !== 0 &&
+          d.orientation !== 90 &&
+          d.orientation !== 180 &&
+          d.orientation !== 270
+        ) {
+          return `Domino ${i}: 'orientation' must be 0, 90, 180, or 270`;
         }
       }
 
@@ -954,7 +999,7 @@ export function EditorPage() {
           values: d.values as [Pip, Pip],
           row: d.row as number,
           col: d.col as number,
-          orientation: d.orientation as 0 | 90,
+          orientation: d.orientation as Orientation,
         }),
       );
       dispatch({ type: "LOAD_FROM_CODE", cells, regions, dominoes });
