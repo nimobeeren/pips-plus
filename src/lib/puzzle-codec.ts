@@ -8,7 +8,7 @@ const CURRENT_VERSION = 1;
 
 /**
  * Compact representation of a puzzle for serialization.
- * IDs and colors are stripped — they get regenerated on decode.
+ * IDs are stripped — they get regenerated on decode.
  */
 interface EncodedPuzzle {
   v: number;
@@ -16,6 +16,7 @@ interface EncodedPuzzle {
   regions: {
     cells: [number, number][];
     constraint: Constraint;
+    color: string;
   }[];
   dominoes: [Pip, Pip][];
 }
@@ -46,6 +47,7 @@ export function encodePuzzle(puzzle: Puzzle): string {
     regions: puzzle.regions.map((r) => ({
       cells: r.cells,
       constraint: r.constraint,
+      color: r.color,
     })),
     dominoes: puzzle.dominoes.map((d) => d.values),
   };
@@ -108,7 +110,7 @@ function decodeEncodedPuzzle(data: unknown): Puzzle {
       id: String.fromCharCode(65 + i), // A, B, C, ...
       cells: regionObj.cells.map(validateCell),
       constraint: validateConstraint(regionObj.constraint, i),
-      color: getRegionColor(i),
+      color: regionObj.color as string,
     };
   });
 

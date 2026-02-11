@@ -87,7 +87,7 @@ describe("puzzle codec", () => {
     expect(decoded.dominoes[0].id).toBe("d01");
   });
 
-  test("decoded puzzle has auto-assigned colors", () => {
+  test("decoded puzzle preserves colors", () => {
     const puzzle: Puzzle = {
       cells: [
         [0, 0],
@@ -108,7 +108,7 @@ describe("puzzle codec", () => {
     };
 
     const decoded = decodePuzzle(encodePuzzle(puzzle));
-    expect(decoded.regions[0].color).not.toBe("#000");
+    expect(decoded.regions[0].color).toBe("#000");
   });
 
   test("all constraint types survive roundtrip", () => {
