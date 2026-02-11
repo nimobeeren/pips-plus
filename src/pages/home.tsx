@@ -92,7 +92,12 @@ export function HomePage() {
 
       {/* Footer */}
       <div className="mt-12 text-center text-sm text-neutral-600 sm:mt-16">
-        <p>Made with 🩵 by Nimo</p>
+        <p>
+          Made with 🩵 by{" "}
+          <a className="hover:underline" href="https://nimobeeren.com">
+            Nimo
+          </a>
+        </p>
       </div>
 
       <button
