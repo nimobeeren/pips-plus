@@ -16,7 +16,7 @@ interface EncodedPuzzle {
   regions: {
     cells: [number, number][];
     constraint: Constraint;
-    color?: string;
+    color: string;
   }[];
   dominoes: [Pip, Pip][];
 }
@@ -110,10 +110,7 @@ function decodeEncodedPuzzle(data: unknown): Puzzle {
       id: String.fromCharCode(65 + i), // A, B, C, ...
       cells: regionObj.cells.map(validateCell),
       constraint: validateConstraint(regionObj.constraint, i),
-      color:
-        typeof regionObj.color === "string"
-          ? regionObj.color
-          : getRegionColor(i),
+      color: regionObj.color as string,
     };
   });
 
