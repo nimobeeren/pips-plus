@@ -1,5 +1,6 @@
 import type { Orientation, Pip, Region } from "@/types";
 import { cellKey } from "@/types";
+import { isClickOnFarHalf } from "./game-state";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BoardRegionBorderOverlay,
@@ -38,7 +39,7 @@ interface EditorBoardProps {
   onRegionCellClick: (regionId: string, row: number, col: number) => void;
   onInteractionEnd: () => void;
   onDominoPlace: (row: number, col: number) => void;
-  onDominoRotate: (id: string) => void;
+  onDominoRotate: (id: string, pivotFar: boolean) => void;
   onDominoMove: (id: string, row: number, col: number) => void;
   onDominoEdit: (id: string) => void;
   onDominoDelete: (id: string) => void;
@@ -121,6 +122,7 @@ export function EditorBoard({
     currentX: number;
     currentY: number;
     isDragging: boolean;
+    clickedFar: boolean;
   } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -259,15 +261,28 @@ export function EditorBoard({
       e.preventDefault();
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      const domino = dominoes.find((d) => d.id === dominoId);
+      const clickedFar = domino
+        ? isClickOnFarHalf(
+            domino.orientation,
+            offsetX,
+            offsetY,
+            rect.width,
+            rect.height,
+          )
+        : false;
       setDragDomino({
         id: dominoId,
         startX: e.clientX,
         startY: e.clientY,
-        offsetX: e.clientX - rect.left,
-        offsetY: e.clientY - rect.top,
+        offsetX,
+        offsetY,
         currentX: e.clientX,
         currentY: e.clientY,
         isDragging: false,
+        clickedFar,
       });
 
       clearLongPress();
@@ -277,7 +292,7 @@ export function EditorBoard({
         onDominoEdit(dominoId);
       }, LONG_PRESS_MS);
     },
-    [activeTool, clearLongPress, onDominoEdit],
+    [activeTool, dominoes, clearLongPress, onDominoEdit],
   );
 
   const handleDominoContextMenu = useCallback(
@@ -326,7 +341,7 @@ export function EditorBoard({
 
       if (dist < DRAG_THRESHOLD) {
         // Treat as click → rotate
-        onDominoRotate(dragDomino.id);
+        onDominoRotate(dragDomino.id, dragDomino.clickedFar);
       } else {
         // Check if dropped outside board → delete
         const container = containerRef.current;

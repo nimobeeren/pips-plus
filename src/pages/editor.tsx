@@ -63,7 +63,7 @@ import type {
   Puzzle,
   Region,
 } from "@/types";
-import { cellKey, getCoveredCells } from "@/types";
+import { cellKey, getCoveredCells, rotateDomino } from "@/types";
 import {
   Braces,
   Check,
@@ -186,7 +186,7 @@ type EditorAction =
       gridRows: number;
       gridCols: number;
     }
-  | { type: "ROTATE_DOMINO"; id: string; gridRows: number; gridCols: number }
+  | { type: "ROTATE_DOMINO"; id: string; pivotFar: boolean }
   | {
       type: "MOVE_DOMINO";
       id: string;
@@ -440,36 +440,60 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     }
 
     case "ROTATE_DOMINO": {
-      const { id, gridRows, gridCols } = action;
+      const { id, pivotFar } = action;
       return clearCheck({
         ...state,
         dominoes: state.dominoes.map((d) => {
           if (d.id !== id) return d;
-          const newOrientation = ((d.orientation + 90) % 360) as Orientation;
 
-          if (
-            (newOrientation === 0 || newOrientation === 180) &&
-            d.col + 1 >= gridCols
-          )
-            return d;
-          if (
-            (newOrientation === 90 || newOrientation === 270) &&
-            d.row + 1 >= gridRows
-          )
-            return d;
-
-          const newCells = getCoveredCells(
+          // Resolve pivot cell (same logic as game)
+          const covered = getCoveredCells(
             d.row,
             d.col,
-            newOrientation,
+            d.orientation,
             d.values,
           );
+          const isFlipped = d.orientation === 180 || d.orientation === 270;
+          const pivotIdx = pivotFar !== isFlipped ? 1 : 0;
+          const pivotCell = covered[pivotIdx].cell;
+
           const occupied = getOccupiedCells(state.dominoes, id);
-          for (const { cell } of newCells) {
-            if (occupied.has(cellKey(cell[0], cell[1]))) return d;
+
+          // Try rotating 90°, 180°, 270° CW and use the first that fits
+          let current = { row: d.row, col: d.col, orientation: d.orientation };
+          for (let step = 0; step < 3; step++) {
+            const result = rotateDomino(
+              current.row,
+              current.col,
+              current.orientation,
+              d.values,
+              pivotCell,
+            );
+
+            const resultCells = getCoveredCells(
+              result.row,
+              result.col,
+              result.orientation,
+              d.values,
+            );
+            const fits = resultCells.every(
+              ({ cell }) =>
+                state.cells.has(cellKey(cell[0], cell[1])) &&
+                !occupied.has(cellKey(cell[0], cell[1])),
+            );
+
+            if (fits) {
+              return {
+                ...d,
+                row: result.row,
+                col: result.col,
+                orientation: result.orientation,
+              };
+            }
+            current = result;
           }
 
-          return { ...d, orientation: newOrientation };
+          return d;
         }),
       });
     }
@@ -743,12 +767,11 @@ export function EditorPage() {
     [state.dominoPips],
   );
 
-  const handleDominoRotate = useCallback((id: string) => {
+  const handleDominoRotate = useCallback((id: string, pivotFar: boolean) => {
     dispatch({
       type: "ROTATE_DOMINO",
       id,
-      gridRows: GRID_ROWS,
-      gridCols: GRID_COLS,
+      pivotFar,
     });
   }, []);
 

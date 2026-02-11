@@ -97,3 +97,36 @@ export function getCoveredCells(
 export function isHorizontal(orientation: Orientation): boolean {
   return orientation === 0 || orientation === 180;
 }
+
+/**
+ * Rotate a domino 90° CW around a pivot cell.
+ * The pivot cell must be one of the two cells the domino covers.
+ * Returns new anchor position and orientation.
+ */
+export function rotateDomino(
+  row: number,
+  col: number,
+  orientation: Orientation,
+  values: [Pip, Pip],
+  pivotCell: [number, number],
+): { row: number; col: number; orientation: Orientation } {
+  const covered = getCoveredCells(row, col, orientation, values);
+  const pivotIdx = covered.findIndex(
+    (c) => c.cell[0] === pivotCell[0] && c.cell[1] === pivotCell[1],
+  );
+  if (pivotIdx === -1) {
+    throw new Error("Pivot cell is not covered by the domino");
+  }
+  const other = covered[1 - pivotIdx];
+
+  // Rotate the other cell 90° CW around pivot: (dr, dc) → (dc, -dr)
+  const dr = other.cell[0] - pivotCell[0];
+  const dc = other.cell[1] - pivotCell[1];
+  const newOtherCell: [number, number] = [pivotCell[0] + dc, pivotCell[1] - dr];
+
+  return {
+    row: Math.min(pivotCell[0], newOtherCell[0]),
+    col: Math.min(pivotCell[1], newOtherCell[1]),
+    orientation: ((orientation + 90) % 360) as Orientation,
+  };
+}
