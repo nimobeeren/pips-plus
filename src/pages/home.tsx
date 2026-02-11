@@ -79,17 +79,15 @@ export function HomePage() {
         </Button>
 
         {/* Puzzle Editor */}
-        <Button
-          variant="secondary"
-          onClick={() => navigate("/editor")}
-          size="sm"
-          disabled={!allPuzzlesSolved}
-          title={
-            allPuzzlesSolved ? undefined : "Complete all puzzles to unlock"
-          }
-        >
-          Puzzle Editor
-        </Button>
+        {allPuzzlesSolved && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate("/editor")}
+            size="sm"
+          >
+            Puzzle Editor
+          </Button>
+        )}
       </div>
 
       {/* Footer */}
