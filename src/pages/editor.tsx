@@ -324,7 +324,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         if (r.cells.some(([cr, cc]) => cellKey(cr, cc) === key)) return state;
       }
 
-      const id = String.fromCharCode(65 + state.nextRegionIndex);
+      const id = String(state.nextRegionIndex);
       const constraint = defaultConstraint(
         state.regionConstraintKind,
         state.regionConstraintTarget,
@@ -942,7 +942,7 @@ export function EditorPage() {
       const cells: [number, number][] = parsed.cells;
       const regions: Region[] = parsed.regions.map(
         (r: Record<string, unknown>, i: number) => ({
-          id: (r.id as string) || String.fromCharCode(65 + i),
+          id: (r.id as string) || String(i),
           cells: r.cells,
           constraint: r.constraint,
           color: (r.color as string) || getRegionColor(i),
@@ -1555,7 +1555,7 @@ function RegionConfig({
             className="size-3 rounded-full"
             style={{ backgroundColor: region.color }}
           />
-          <span className="text-sm font-medium">Region {region.id}</span>
+          <span className="text-sm font-medium">Region</span>
           <span className="text-xs text-neutral-400">
             {region.cells.length} cells
           </span>
