@@ -59,14 +59,16 @@ export function ResultsModal({
           </p>
         )}
         <DialogFooter className="flex-col gap-2 sm:justify-center">
-          {allPuzzlesSolved && !puzzleName.startsWith("custom:") && (
-            <Button variant="outline" onClick={() => navigate("/editor")}>
-              Open Puzzle Editor
+          <div className="flex flex-col gap-2">
+            {allPuzzlesSolved && !puzzleName.startsWith("custom:") && (
+              <Button variant="outline" onClick={() => navigate("/editor")}>
+                Open Puzzle Editor
+              </Button>
+            )}
+            <Button onClick={() => navigate("/")}>
+              {allPuzzlesSolved ? "Back to Home" : "Solve Another Puzzle"}
             </Button>
-          )}
-          <Button onClick={() => navigate("/")}>
-            {allPuzzlesSolved ? "Back to Home" : "Solve Another Puzzle"}
-          </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
