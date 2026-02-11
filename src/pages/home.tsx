@@ -22,6 +22,9 @@ export function HomePage() {
 
   const isSolved = difficulty in puzzles && isPuzzleSolved(difficulty);
 
+  const existingPuzzles = difficulties.filter((d) => d in puzzles);
+  const allPuzzlesSolved = existingPuzzles.every((d) => isPuzzleSolved(d));
+
   const handleReset = useCallback(() => {
     localStorage.clear();
     setDifficulty("easy");
@@ -76,13 +79,15 @@ export function HomePage() {
         </Button>
 
         {/* Puzzle Editor */}
-        <Button
-          variant="secondary"
-          onClick={() => navigate("/editor")}
-          size="sm"
-        >
-          Puzzle Editor
-        </Button>
+        {allPuzzlesSolved && (
+          <Button
+            variant="secondary"
+            onClick={() => navigate("/editor")}
+            size="sm"
+          >
+            Puzzle Editor
+          </Button>
+        )}
       </div>
 
       {/* Footer */}
