@@ -15,6 +15,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -36,6 +37,10 @@ import { GameStatus } from "./game-status";
 import { PauseModal } from "./pause-modal";
 import { ResultsModal } from "./results-modal";
 import { Tray, trayCols, trayDimensions } from "./tray";
+
+/** Padding around the board when computing natural content size. */
+const BOARD_AREA_PADDING = 32; // p-4 on each side
+const TRAY_AREA_PADDING = 32;
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -195,9 +200,23 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     offsetX: 0,
     cols: 1,
   });
+  const [scaleFactor, setScaleFactor] = useState(1);
 
   const boardRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // Natural board dimensions (in unscaled pixels)
+  const boardNaturalSize = useMemo(() => {
+    const rows = puzzle.cells.map(([r]) => r);
+    const cols = puzzle.cells.map(([, c]) => c);
+    const rowSpan = Math.max(...rows) - Math.min(...rows) + 1;
+    const colSpan = Math.max(...cols) - Math.min(...cols) + 1;
+    return {
+      width: colSpan * CELL_SIZE,
+      height: rowSpan * CELL_SIZE,
+    };
+  }, [puzzle.cells]);
 
   const handleClear = useCallback(() => {
     dispatch({
@@ -225,10 +244,8 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   }, []);
 
   const computeTrayLayout = useCallback(() => {
-    const trayEl = trayRef.current;
-    const availableWidth = trayEl
-      ? trayEl.getBoundingClientRect().width
-      : window.innerWidth;
+    // Use full viewport width for column calculation (unscaled)
+    const availableWidth = window.innerWidth;
     const cols = trayCols(availableWidth);
     const dims = trayDimensions(puzzle.dominoes.length, cols);
     const offsetX = Math.max(0, (availableWidth - dims.width) / 2);
@@ -268,11 +285,29 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         prevColsRef.current = layout.cols;
       }
       setTrayLayout(layout);
+
+      // Compute scale factor to fit board + tray in available space.
+      // Only the board width drives horizontal scaling (the tray adapts
+      // its column count to fit). The total height of board + tray drives
+      // vertical scaling.
+      const headerHeight = headerRef.current?.offsetHeight ?? 0;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const availableH = viewportH - headerHeight;
+
+      const boardW = boardNaturalSize.width + BOARD_AREA_PADDING * 2;
+      const naturalH =
+        boardNaturalSize.height +
+        BOARD_AREA_PADDING * 2 +
+        layout.height +
+        TRAY_AREA_PADDING * 2;
+
+      setScaleFactor(Math.min(1, viewportW / boardW, availableH / naturalH));
     };
     updateLayout();
     window.addEventListener("resize", updateLayout);
     return () => window.removeEventListener("resize", updateLayout);
-  }, [computeTrayLayout]);
+  }, [computeTrayLayout, boardNaturalSize]);
 
   // Pointer drag handlers
   const handlePointerDown = useCallback(
@@ -353,8 +388,11 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         const maxRow = Math.max(...puzzle.cells.map(([r]) => r));
         const maxCol = Math.max(...puzzle.cells.map(([, c]) => c));
 
-        const ghostLeft = e.clientX - dragInfo.offsetX - boardRect.left;
-        const ghostTop = e.clientY - dragInfo.offsetY - boardRect.top;
+        // Convert screen-space ghost position to unscaled board coordinates
+        const ghostLeft =
+          (e.clientX - dragInfo.offsetX - boardRect.left) / scaleFactor;
+        const ghostTop =
+          (e.clientY - dragInfo.offsetY - boardRect.top) / scaleFactor;
         const horizontal = isHorizontal(domino.orientation);
         const ghostW = horizontal ? DOMINO_SPAN : DOMINO_SIZE;
         const ghostH = horizontal ? DOMINO_SIZE : DOMINO_SPAN;
@@ -422,11 +460,11 @@ export function Game({ puzzle, name, backTo }: GameProps) {
       if (trayEl) {
         const trayRect = trayEl.getBoundingClientRect();
         if (e.clientY >= trayRect.top) {
-          // Ghost visual top-left in tray coordinates
+          // Ghost visual top-left in unscaled tray coordinates
           const ghostLeft = e.clientX - dragInfo.offsetX;
           const ghostTop = e.clientY - dragInfo.offsetY;
-          const visualX = ghostLeft - trayRect.left;
-          const visualY = ghostTop - trayRect.top;
+          const visualX = (ghostLeft - trayRect.left) / scaleFactor;
+          const visualY = (ghostTop - trayRect.top) / scaleFactor;
 
           // Convert visual position to wrapper position, compensating for
           // the CSS rotation offset so the domino appears where it was dropped
@@ -537,54 +575,92 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   // Compute the ID of the currently dragged domino to hide it in board/tray
   const draggedId = dragInfo?.dominoId ?? null;
 
+  // The scaled container is full viewport width in unscaled pixels.
+  // This ensures the tray spans the full screen width after scaling.
+  const trayNaturalDims = trayDimensions(
+    puzzle.dominoes.length,
+    trayLayout.cols,
+  );
+  const scaledContainerW = window.innerWidth / scaleFactor;
+  const scaledContainerH =
+    boardNaturalSize.height +
+    BOARD_AREA_PADDING * 2 +
+    trayNaturalDims.height +
+    TRAY_AREA_PADDING * 2;
+
+  // Max tray height: 40% of viewport, converted to unscaled pixels
+  const maxTrayHeight = (window.innerHeight * 0.4) / scaleFactor;
+
   return (
-    <div className="flex min-h-svh flex-col">
-      {/* Controls at top */}
-      <GameControls
-        onClear={handleClear}
-        backTo={backTo}
-        solved={!!puzzleResult}
-        onViewResults={() => setShowResults(true)}
-      />
-
-      {/* Status messages (only for invalid) */}
-      <GameStatus status={state.status} />
-
-      {/* Board area */}
-      <div className="flex flex-1 items-center justify-center p-4">
-        <Board
-          ref={boardRef}
-          puzzle={puzzle}
-          dominoes={state.dominoes}
-          draggedDominoId={draggedId}
-          violatedRegions={state.violatedRegions}
-          onDominoPointerDown={handlePointerDown}
-          onDominoClick={handleDominoClick}
-          onDominoKeyDown={handleDominoKeyDown}
-          heldDominoId={state.heldDominoId}
-          keyboardCursor={state.keyboardCursor}
+    <div className="flex h-svh flex-col overflow-hidden">
+      {/* Controls at top — unscaled */}
+      <div ref={headerRef} className="shrink-0">
+        <GameControls
+          onClear={handleClear}
+          backTo={backTo}
+          solved={!!puzzleResult}
+          onViewResults={() => setShowResults(true)}
         />
+        <GameStatus status={state.status} />
       </div>
 
-      {/* Tray area (full width below separator) */}
-      <div className="flex justify-center border-t border-neutral-300 p-4">
-        <Tray
-          ref={trayRef}
-          puzzle={puzzle}
-          dominoes={state.dominoes}
-          cols={trayLayout.cols}
-          draggedDominoId={draggedId}
-          onDominoPointerDown={handlePointerDown}
-          onDominoClick={handleDominoClick}
-          onDominoKeyDown={handleDominoKeyDown}
-          heldDominoId={state.heldDominoId}
-          trayOffsetX={trayLayout.offsetX}
-          onCleanUp={handleCleanUp}
-        />
+      {/* Scaled game area */}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          style={{
+            width: scaledContainerW,
+            height: scaledContainerH,
+            transform: `scale(${scaleFactor})`,
+            transformOrigin: "top left",
+          }}
+          className="flex shrink-0 flex-col"
+        >
+          {/* Board area */}
+          <div className="flex flex-1 items-center justify-center p-4">
+            <Board
+              ref={boardRef}
+              puzzle={puzzle}
+              dominoes={state.dominoes}
+              draggedDominoId={draggedId}
+              violatedRegions={state.violatedRegions}
+              onDominoPointerDown={handlePointerDown}
+              onDominoClick={handleDominoClick}
+              onDominoKeyDown={handleDominoKeyDown}
+              heldDominoId={state.heldDominoId}
+              keyboardCursor={state.keyboardCursor}
+            />
+          </div>
+
+          {/* Tray area (full width below separator) */}
+          <div
+            className="shrink-0 border-t border-neutral-300"
+            style={{ maxHeight: maxTrayHeight, overflowY: "auto" }}
+          >
+            <div className="flex justify-center p-4">
+              <Tray
+                ref={trayRef}
+                puzzle={puzzle}
+                dominoes={state.dominoes}
+                cols={trayLayout.cols}
+                draggedDominoId={draggedId}
+                onDominoPointerDown={handlePointerDown}
+                onDominoClick={handleDominoClick}
+                onDominoKeyDown={handleDominoKeyDown}
+                heldDominoId={state.heldDominoId}
+                trayOffsetX={trayLayout.offsetX}
+                onCleanUp={handleCleanUp}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Drag ghost: rendered in physical orientation (no CSS rotation) */}
-      <GameDragGhost dragInfo={dragInfo} draggingDomino={draggingDomino} />
+      <GameDragGhost
+        dragInfo={dragInfo}
+        draggingDomino={draggingDomino}
+        scaleFactor={scaleFactor}
+      />
 
       {/* Results modal */}
       {puzzleResult && (

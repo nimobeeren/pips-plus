@@ -5,11 +5,13 @@ import type { DragInfo } from "./game-state";
 interface GameDragGhostProps {
   dragInfo: DragInfo | null;
   draggingDomino: DominoState | null;
+  scaleFactor: number;
 }
 
 export function GameDragGhost({
   dragInfo,
   draggingDomino,
+  scaleFactor,
 }: GameDragGhostProps) {
   if (!dragInfo || !draggingDomino) return null;
 
@@ -20,7 +22,12 @@ export function GameDragGhost({
   return (
     <div
       className="pointer-events-none fixed z-50"
-      style={{ left: ghostLeft, top: ghostTop }}
+      style={{
+        left: ghostLeft,
+        top: ghostTop,
+        transform: `scale(${scaleFactor})`,
+        transformOrigin: "top left",
+      }}
     >
       <Domino
         id={draggingDomino.id}
