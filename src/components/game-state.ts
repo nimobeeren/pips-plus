@@ -20,6 +20,8 @@ export interface GameState {
   heldDominoId: string | null;
   keyboardCursor: [number, number] | null;
   nextZOrder: number;
+  /** Increments each time validation produces an "invalid" result. */
+  invalidCount: number;
 }
 
 export type GameAction =
@@ -73,6 +75,7 @@ export function initState(puzzle: Puzzle): GameState {
     heldDominoId: null,
     keyboardCursor: null,
     nextZOrder: puzzle.dominoes.length,
+    invalidCount: 0,
   };
 }
 
@@ -148,6 +151,7 @@ export function doValidation(state: GameState): GameState {
     ...state,
     status: "invalid",
     violatedRegions: result.violatedRegions,
+    invalidCount: state.invalidCount + 1,
   };
 }
 

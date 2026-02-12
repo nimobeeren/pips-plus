@@ -40,7 +40,7 @@ import { Tray, trayCols, trayDimensions } from "./tray";
 
 /** Padding around the board when computing natural content size. */
 const BOARD_AREA_PADDING_X = 32; // px-4 on each side
-const BOARD_AREA_PADDING_Y = 24; // pt-2 + pb-4
+const BOARD_AREA_PADDING_Y = 32; // pt-2 + pb-4
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -64,6 +64,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         violatedRegions: [],
         heldDominoId: null,
         keyboardCursor: null,
+        invalidCount: 0,
       });
     }
     return initState(puzzle);
@@ -629,7 +630,6 @@ export function Game({ puzzle, name, backTo }: GameProps) {
           solved={!!puzzleResult}
           onViewResults={() => setShowResults(true)}
         />
-        <GameStatus status={state.status} />
       </div>
 
       {/* Scaled game area */}
@@ -644,7 +644,11 @@ export function Game({ puzzle, name, backTo }: GameProps) {
           className="flex shrink-0 flex-col"
         >
           {/* Board area */}
-          <div className="flex flex-1 items-center justify-center px-4 pb-4 pt-2">
+          <div className="relative flex flex-1 items-center justify-center px-4 pb-4 pt-2">
+            <GameStatus
+              status={state.status}
+              invalidCount={state.invalidCount}
+            />
             <Board
               ref={boardRef}
               puzzle={puzzle}
