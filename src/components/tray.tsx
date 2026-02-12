@@ -5,13 +5,14 @@ import { DOMINO_SIZE, DOMINO_SPAN, Domino } from "./domino";
 
 export const MAX_TRAY_COLS = 6;
 export const TRAY_GAP = 24;
-export const TRAY_PADDING = 48;
+export const TRAY_PADDING_X = 16;
+export const TRAY_PADDING_Y = 32;
 
 /** Compute how many columns fit in the given width (1..MAX_TRAY_COLS). */
 export function trayCols(availableWidth: number): number {
-  // Solve: TRAY_PADDING * 2 + cols * DOMINO_SPAN + (cols - 1) * TRAY_GAP <= availableWidth
-  // cols * (DOMINO_SPAN + TRAY_GAP) <= availableWidth - TRAY_PADDING * 2 + TRAY_GAP
-  const usable = availableWidth - TRAY_PADDING * 2 + TRAY_GAP;
+  // Solve: TRAY_PADDING_X * 2 + cols * DOMINO_SPAN + (cols - 1) * TRAY_GAP <= availableWidth
+  // cols * (DOMINO_SPAN + TRAY_GAP) <= availableWidth - TRAY_PADDING_X * 2 + TRAY_GAP
+  const usable = availableWidth - TRAY_PADDING_X * 2 + TRAY_GAP;
   const cols = Math.floor(usable / (DOMINO_SPAN + TRAY_GAP));
   return Math.max(1, Math.min(cols, MAX_TRAY_COLS));
 }
@@ -22,8 +23,8 @@ export function initialTrayPosition(
   cols: number,
 ): { x: number; y: number } {
   return {
-    x: TRAY_PADDING + (index % cols) * (DOMINO_SPAN + TRAY_GAP),
-    y: TRAY_PADDING + Math.floor(index / cols) * (DOMINO_SIZE + TRAY_GAP),
+    x: TRAY_PADDING_X + (index % cols) * (DOMINO_SPAN + TRAY_GAP),
+    y: TRAY_PADDING_Y + Math.floor(index / cols) * (DOMINO_SIZE + TRAY_GAP),
   };
 }
 
@@ -33,11 +34,13 @@ export function trayDimensions(dominoCount: number, cols: number) {
   const rows = Math.ceil(dominoCount / cols);
   return {
     width:
-      TRAY_PADDING * 2 +
+      TRAY_PADDING_X * 2 +
       effectiveCols * DOMINO_SPAN +
       Math.max(0, effectiveCols - 1) * TRAY_GAP,
     height:
-      TRAY_PADDING * 2 + rows * DOMINO_SIZE + Math.max(0, rows - 1) * TRAY_GAP,
+      TRAY_PADDING_Y * 2 +
+      rows * DOMINO_SIZE +
+      Math.max(0, rows - 1) * TRAY_GAP,
   };
 }
 
@@ -134,7 +137,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
 
       {/* Clean up button */}
       {trayDominoes.length > 0 && (
-        <div className="absolute top-0 right-0">
+        <div className="absolute" style={{ top: 16, right: TRAY_PADDING_X }}>
           <Button variant="outline" size="sm" onClick={onCleanUp}>
             Clean up
           </Button>

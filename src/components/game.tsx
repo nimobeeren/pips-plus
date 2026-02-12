@@ -40,7 +40,6 @@ import { Tray, trayCols, trayDimensions } from "./tray";
 
 /** Padding around the board when computing natural content size. */
 const BOARD_AREA_PADDING = 32; // p-4 on each side
-const TRAY_AREA_PADDING = 32;
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -297,10 +296,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
       const boardW = boardNaturalSize.width + BOARD_AREA_PADDING * 2;
       const naturalH =
-        boardNaturalSize.height +
-        BOARD_AREA_PADDING * 2 +
-        layout.height +
-        TRAY_AREA_PADDING * 2;
+        boardNaturalSize.height + BOARD_AREA_PADDING * 2 + layout.height;
 
       setScaleFactor(Math.min(1, viewportW / boardW, availableH / naturalH));
     };
@@ -583,10 +579,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   );
   const scaledContainerW = window.innerWidth / scaleFactor;
   const scaledContainerH =
-    boardNaturalSize.height +
-    BOARD_AREA_PADDING * 2 +
-    trayNaturalDims.height +
-    TRAY_AREA_PADDING * 2;
+    boardNaturalSize.height + BOARD_AREA_PADDING * 2 + trayNaturalDims.height;
 
   // Max tray height: 40% of viewport, converted to unscaled pixels
   const maxTrayHeight = (window.innerHeight * 0.4) / scaleFactor;
@@ -636,7 +629,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
             className="shrink-0 border-t border-neutral-300"
             style={{ maxHeight: maxTrayHeight, overflowY: "auto" }}
           >
-            <div className="flex justify-center p-4">
+            <div className="flex justify-center">
               <Tray
                 ref={trayRef}
                 puzzle={puzzle}
