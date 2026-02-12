@@ -246,16 +246,14 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
   const computeTrayLayout = useCallback(
     (scale: number) => {
-      // Use the visual viewport width to compute columns, so the tray
-      // content fits within the visible area after scaling.
-      const availableWidth = window.innerWidth;
+      // The tray is rendered inside a scaled container, so the unscaled
+      // available width is wider than the physical viewport.
+      const availableWidth = window.innerWidth / scale;
       const cols = trayCols(availableWidth);
       const dims = trayDimensions(puzzle.dominoes.length, cols);
-      // Center the tray content within the unscaled container
-      const unscaledContainerWidth = window.innerWidth / scale;
-      const offsetX = Math.max(0, (unscaledContainerWidth - dims.width) / 2);
+      const offsetX = Math.max(0, (availableWidth - dims.width) / 2);
       return {
-        width: unscaledContainerWidth,
+        width: availableWidth,
         height: dims.height,
         offsetX,
         cols,
