@@ -44,6 +44,7 @@ export type GameAction =
   | { type: "MOVE_CURSOR"; direction: "up" | "down" | "left" | "right" }
   | { type: "CONFIRM_PLACEMENT" }
   | { type: "CANCEL_HELD" }
+  | { type: "CLEAN_UP" }
   | { type: "CLEAR" };
 
 export function initState(puzzle: Puzzle): GameState {
@@ -479,6 +480,26 @@ export function reducer(state: GameState, action: GameAction): GameState {
 
     case "CANCEL_HELD": {
       return { ...state, heldDominoId: null, keyboardCursor: null };
+    }
+
+    case "CLEAN_UP": {
+      const nextDominoes = state.dominoes.map((d) => {
+        if (d.location.type !== "tray") return d;
+        const index = state.puzzle.dominoes.findIndex((pd) => pd.id === d.id);
+        const pos = initialTrayPosition(index);
+        return {
+          ...d,
+          orientation: 0 as Orientation,
+          zOrder: index,
+          location: { type: "tray" as const, x: pos.x, y: pos.y },
+        };
+      });
+      return {
+        ...state,
+        dominoes: nextDominoes,
+        heldDominoId: null,
+        keyboardCursor: null,
+      };
     }
 
     case "CLEAR": {

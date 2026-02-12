@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import type { DominoState, Puzzle } from "@/types";
 import { forwardRef } from "react";
 import { DOMINO_SIZE, DOMINO_SPAN, Domino } from "./domino";
@@ -36,6 +37,7 @@ interface TrayProps {
   onDominoKeyDown: (id: string, e: React.KeyboardEvent) => void;
   heldDominoId: string | null;
   trayOffsetX: number;
+  onCleanUp: () => void;
 }
 
 export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
@@ -48,6 +50,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
     onDominoKeyDown,
     heldDominoId,
     trayOffsetX,
+    onCleanUp,
   },
   ref,
 ) {
@@ -113,6 +116,15 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
           </div>
         );
       })}
+
+      {/* Clean up button */}
+      {trayDominoes.length > 0 && (
+        <div className="absolute" style={{ top: 0, right: 0 }}>
+          <Button variant="outline" size="sm" onClick={onCleanUp}>
+            Clean up
+          </Button>
+        </div>
+      )}
     </div>
   );
 });

@@ -211,6 +211,10 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     }
   }, [name, puzzleResult]);
 
+  const handleCleanUp = useCallback(() => {
+    dispatch({ type: "CLEAN_UP" });
+  }, []);
+
   const computeTrayLayout = useCallback(() => {
     const fallback = trayDimensions(puzzle.dominoes.length);
     const trayEl = trayRef.current;
@@ -566,6 +570,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
           onDominoKeyDown={handleDominoKeyDown}
           heldDominoId={state.heldDominoId}
           trayOffsetX={trayLayout.offsetX}
+          onCleanUp={handleCleanUp}
         />
       </div>
 
