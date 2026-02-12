@@ -8,7 +8,7 @@ import type {
 } from "@/types";
 import { cellKey, getCoveredCells, isHorizontal, rotateDomino } from "@/types";
 import { CELL_SIZE, DOMINO_SIZE, DOMINO_SPAN } from "./domino";
-import { initialTrayPosition, trayDimensions } from "./tray";
+import { MAX_TRAY_COLS, initialTrayPosition, trayDimensions } from "./tray";
 
 // --- State management ---
 
@@ -39,17 +39,23 @@ export type GameAction =
       trayWidth?: number;
       trayHeight?: number;
     }
-  | { type: "REPOSITION_TRAY"; prevOffsetX: number; newOffsetX: number }
+  | {
+      type: "REPOSITION_TRAY";
+      prevOffsetX: number;
+      newOffsetX: number;
+      prevCols: number;
+      newCols: number;
+    }
   | { type: "PICK_UP"; id: string }
   | { type: "MOVE_CURSOR"; direction: "up" | "down" | "left" | "right" }
   | { type: "CONFIRM_PLACEMENT" }
   | { type: "CANCEL_HELD" }
-  | { type: "CLEAN_UP"; trayOffsetX: number }
-  | { type: "CLEAR"; trayOffsetX: number };
+  | { type: "CLEAN_UP"; trayOffsetX: number; cols: number }
+  | { type: "CLEAR"; trayOffsetX: number; cols: number };
 
 export function initState(puzzle: Puzzle): GameState {
   const dominoes: DominoState[] = puzzle.dominoes.map((d, i) => {
-    const pos = initialTrayPosition(i);
+    const pos = initialTrayPosition(i, MAX_TRAY_COLS);
     return {
       id: d.id,
       values: d.values,
@@ -221,7 +227,10 @@ export function isClickOnFarHalf(
 export function reducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case "ROTATE": {
-      const traySize = trayDimensions(state.puzzle.dominoes.length);
+      const traySize = trayDimensions(
+        state.puzzle.dominoes.length,
+        MAX_TRAY_COLS,
+      );
       const trayWidth = action.trayWidth ?? traySize.width;
       const trayHeight = action.trayHeight ?? traySize.height;
       const nextDominoes = state.dominoes.map((d) => {
@@ -355,7 +364,10 @@ export function reducer(state: GameState, action: GameAction): GameState {
     }
 
     case "MOVE_TO_TRAY": {
-      const traySize = trayDimensions(state.puzzle.dominoes.length);
+      const traySize = trayDimensions(
+        state.puzzle.dominoes.length,
+        MAX_TRAY_COLS,
+      );
       const trayWidth = action.trayWidth ?? traySize.width;
       const trayHeight = action.trayHeight ?? traySize.height;
       const domino = state.dominoes.find((d) => d.id === action.id);
@@ -394,17 +406,18 @@ export function reducer(state: GameState, action: GameAction): GameState {
         if (d.location.type !== "tray") return d;
         const index = state.puzzle.dominoes.findIndex((pd) => pd.id === d.id);
         if (index < 0) return d;
-        const basePos = initialTrayPosition(index);
-        const prevX = basePos.x + action.prevOffsetX;
-        const prevY = basePos.y;
+        const prevPos = initialTrayPosition(index, action.prevCols);
+        const prevX = prevPos.x + action.prevOffsetX;
+        const prevY = prevPos.y;
         // Only move dominoes that are still at their original placeholder position
         if (d.location.x === prevX && d.location.y === prevY) {
+          const newPos = initialTrayPosition(index, action.newCols);
           return {
             ...d,
             location: {
               type: "tray" as const,
-              x: basePos.x + action.newOffsetX,
-              y: basePos.y,
+              x: newPos.x + action.newOffsetX,
+              y: newPos.y,
             },
           };
         }
@@ -494,7 +507,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const nextDominoes = state.dominoes.map((d) => {
         if (d.location.type !== "tray") return d;
         const index = state.puzzle.dominoes.findIndex((pd) => pd.id === d.id);
-        const pos = initialTrayPosition(index);
+        const pos = initialTrayPosition(index, action.cols);
         return {
           ...d,
           orientation: 0 as Orientation,
@@ -518,6 +531,7 @@ export function reducer(state: GameState, action: GameAction): GameState {
       const nextDominoes = state.dominoes.map((d, i) => {
         const pos = initialTrayPosition(
           state.puzzle.dominoes.findIndex((pd) => pd.id === d.id),
+          action.cols,
         );
         return {
           ...d,

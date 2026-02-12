@@ -23,7 +23,6 @@ import { Board } from "./board";
 import { CELL_SIZE, DOMINO_SIZE, DOMINO_SPAN } from "./domino";
 import { GameControls } from "./game-controls";
 import { GameDragGhost } from "./game-drag-ghost";
-import { GameStatus } from "./game-status";
 import {
   ROTATION_VISUAL_OFFSET,
   canPlaceOnBoard,
@@ -33,9 +32,10 @@ import {
   reducer,
   type DragInfo,
 } from "./game-state";
+import { GameStatus } from "./game-status";
 import { PauseModal } from "./pause-modal";
 import { ResultsModal } from "./results-modal";
-import { Tray, trayDimensions } from "./tray";
+import { Tray, trayCols, trayDimensions } from "./tray";
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -193,13 +193,18 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     width: 0,
     height: 0,
     offsetX: 0,
+    cols: 1,
   });
 
   const boardRef = useRef<HTMLDivElement>(null);
   const trayRef = useRef<HTMLDivElement>(null);
 
   const handleClear = useCallback(() => {
-    dispatch({ type: "CLEAR", trayOffsetX: prevOffsetXRef.current });
+    dispatch({
+      type: "CLEAR",
+      trayOffsetX: prevOffsetXRef.current,
+      cols: prevColsRef.current,
+    });
     if (puzzleResult) {
       clearPuzzleResult(name);
       clearElapsedTime(name);
@@ -212,41 +217,55 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   }, [name, puzzleResult]);
 
   const handleCleanUp = useCallback(() => {
-    dispatch({ type: "CLEAN_UP", trayOffsetX: prevOffsetXRef.current });
+    dispatch({
+      type: "CLEAN_UP",
+      trayOffsetX: prevOffsetXRef.current,
+      cols: prevColsRef.current,
+    });
   }, []);
 
   const computeTrayLayout = useCallback(() => {
-    const fallback = trayDimensions(puzzle.dominoes.length);
     const trayEl = trayRef.current;
-    if (!trayEl) {
-      return { width: fallback.width, height: fallback.height, offsetX: 0 };
-    }
-    const rect = trayEl.getBoundingClientRect();
-    const offsetX = Math.max(0, (rect.width - fallback.width) / 2);
-    return { width: rect.width, height: rect.height, offsetX };
+    const availableWidth = trayEl
+      ? trayEl.getBoundingClientRect().width
+      : window.innerWidth;
+    const cols = trayCols(availableWidth);
+    const dims = trayDimensions(puzzle.dominoes.length, cols);
+    const offsetX = Math.max(0, (availableWidth - dims.width) / 2);
+    return { width: availableWidth, height: dims.height, offsetX, cols };
   }, [puzzle.dominoes.length]);
 
   const getTraySize = useCallback(() => {
     if (trayLayout.width && trayLayout.height) {
       return { width: trayLayout.width, height: trayLayout.height };
     }
-    const fallback = trayDimensions(puzzle.dominoes.length);
-    return { width: fallback.width, height: fallback.height };
-  }, [puzzle.dominoes.length, trayLayout.height, trayLayout.width]);
+    const dims = trayDimensions(puzzle.dominoes.length, trayLayout.cols);
+    return { width: dims.width, height: dims.height };
+  }, [
+    puzzle.dominoes.length,
+    trayLayout.height,
+    trayLayout.width,
+    trayLayout.cols,
+  ]);
 
   const prevOffsetXRef = useRef(0);
+  const prevColsRef = useRef(1);
 
   useLayoutEffect(() => {
     const updateLayout = () => {
       const layout = computeTrayLayout();
       const prevOffsetX = prevOffsetXRef.current;
-      if (layout.offsetX !== prevOffsetX) {
+      const prevCols = prevColsRef.current;
+      if (layout.offsetX !== prevOffsetX || layout.cols !== prevCols) {
         dispatch({
           type: "REPOSITION_TRAY",
           prevOffsetX,
           newOffsetX: layout.offsetX,
+          prevCols,
+          newCols: layout.cols,
         });
         prevOffsetXRef.current = layout.offsetX;
+        prevColsRef.current = layout.cols;
       }
       setTrayLayout(layout);
     };
@@ -553,6 +572,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
           ref={trayRef}
           puzzle={puzzle}
           dominoes={state.dominoes}
+          cols={trayLayout.cols}
           draggedDominoId={draggedId}
           onDominoPointerDown={handlePointerDown}
           onDominoClick={handleDominoClick}
