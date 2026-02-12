@@ -242,14 +242,19 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     });
   }, []);
 
-  const computeTrayLayout = useCallback(() => {
-    // Use full viewport width for column calculation (unscaled)
-    const availableWidth = window.innerWidth;
-    const cols = trayCols(availableWidth);
-    const dims = trayDimensions(puzzle.dominoes.length, cols);
-    const offsetX = Math.max(0, (availableWidth - dims.width) / 2);
-    return { width: availableWidth, height: dims.height, offsetX, cols };
-  }, [puzzle.dominoes.length]);
+  const computeTrayLayout = useCallback(
+    (scale: number) => {
+      // The tray lives inside the scaled container, which has width
+      // window.innerWidth / scale in unscaled pixels. Use that for
+      // column calculation so dominoes fill the visible width.
+      const availableWidth = window.innerWidth / scale;
+      const cols = trayCols(availableWidth);
+      const dims = trayDimensions(puzzle.dominoes.length, cols);
+      const offsetX = Math.max(0, (availableWidth - dims.width) / 2);
+      return { width: availableWidth, height: dims.height, offsetX, cols };
+    },
+    [puzzle.dominoes.length],
+  );
 
   const getTraySize = useCallback(() => {
     if (trayLayout.width && trayLayout.height) {
@@ -269,7 +274,49 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
   useLayoutEffect(() => {
     const updateLayout = () => {
-      const layout = computeTrayLayout();
+      const headerHeight = headerRef.current?.offsetHeight ?? 0;
+      const viewportW = window.innerWidth;
+      const viewportH = window.innerHeight;
+      const availableH = viewportH - headerHeight;
+      const boardW = boardNaturalSize.width + BOARD_AREA_PADDING * 2;
+
+      // First pass: compute a preliminary scale from board width alone,
+      // so we know how much unscaled width the tray has available.
+      const hScale = Math.min(1, viewportW / boardW);
+
+      // Compute tray layout using the effective unscaled width
+      const layout = computeTrayLayout(hScale);
+
+      // Second pass: compute the final scale including tray height
+      const naturalH =
+        boardNaturalSize.height + BOARD_AREA_PADDING * 2 + layout.height;
+      const finalScale = Math.min(1, viewportW / boardW, availableH / naturalH);
+
+      // If the final scale differs significantly from hScale (because the
+      // vertical constraint tightened it), recompute the tray layout with
+      // the final scale so column count reflects the actual available width.
+      if (Math.abs(finalScale - hScale) > 0.001) {
+        const adjustedLayout = computeTrayLayout(finalScale);
+        const adjustedNaturalH =
+          boardNaturalSize.height +
+          BOARD_AREA_PADDING * 2 +
+          adjustedLayout.height;
+        const adjustedScale = Math.min(
+          1,
+          viewportW / boardW,
+          availableH / adjustedNaturalH,
+        );
+
+        applyLayout(adjustedLayout, adjustedScale);
+      } else {
+        applyLayout(layout, finalScale);
+      }
+    };
+
+    const applyLayout = (
+      layout: ReturnType<typeof computeTrayLayout>,
+      scale: number,
+    ) => {
       const prevOffsetX = prevOffsetXRef.current;
       const prevCols = prevColsRef.current;
       if (layout.offsetX !== prevOffsetX || layout.cols !== prevCols) {
@@ -284,22 +331,9 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         prevColsRef.current = layout.cols;
       }
       setTrayLayout(layout);
-
-      // Compute scale factor to fit board + tray in available space.
-      // Only the board width drives horizontal scaling (the tray adapts
-      // its column count to fit). The total height of board + tray drives
-      // vertical scaling.
-      const headerHeight = headerRef.current?.offsetHeight ?? 0;
-      const viewportW = window.innerWidth;
-      const viewportH = window.innerHeight;
-      const availableH = viewportH - headerHeight;
-
-      const boardW = boardNaturalSize.width + BOARD_AREA_PADDING * 2;
-      const naturalH =
-        boardNaturalSize.height + BOARD_AREA_PADDING * 2 + layout.height;
-
-      setScaleFactor(Math.min(1, viewportW / boardW, availableH / naturalH));
+      setScaleFactor(scale);
     };
+
     updateLayout();
     window.addEventListener("resize", updateLayout);
     return () => window.removeEventListener("resize", updateLayout);
