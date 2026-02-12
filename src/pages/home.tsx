@@ -1,3 +1,14 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { isPuzzleSolved } from "@/lib/game-storage";
 import { difficulties, puzzles, type Difficulty } from "@/puzzles";
@@ -100,12 +111,25 @@ export function HomePage() {
         </p>
       </div>
 
-      <button
-        onClick={handleReset}
-        className="absolute bottom-6 text-xs text-neutral-600 underline-offset-2 hover:underline hover:text-neutral-800"
-      >
-        Reset everything
-      </button>
+      <AlertDialog>
+        <AlertDialogTrigger className="absolute bottom-6 text-xs text-neutral-600 underline-offset-2 hover:underline hover:text-neutral-800">
+          Reset everything
+        </AlertDialogTrigger>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset everything?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will reset all your progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleReset}>
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
