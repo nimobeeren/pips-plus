@@ -161,6 +161,205 @@ export const puzzles: Record<string, Puzzle> = {
     ],
   },
 
+  medium: {
+    cells: [
+      [7, 8],
+      [6, 8],
+      [5, 8],
+      [4, 8],
+      [5, 5],
+      [2, 8],
+      [5, 7],
+      [5, 6],
+      [5, 9],
+      [1, 8],
+      [3, 8],
+      [3, 7],
+      [2, 7],
+      [3, 6],
+      [4, 5],
+      [4, 6],
+      [5, 3],
+      [7, 3],
+      [6, 3],
+      [4, 3],
+      [3, 3],
+      [2, 3],
+      [3, 2],
+      [3, 1],
+    ],
+    regions: [
+      {
+        id: "15",
+        cells: [[7, 8]],
+        constraint: {
+          kind: "greater",
+          target: 1,
+        },
+        color: "#c4a0d8",
+      },
+      {
+        id: "16",
+        cells: [
+          [1, 8],
+          [2, 8],
+          [3, 8],
+        ],
+        constraint: {
+          kind: "product",
+          target: 6,
+        },
+        color: "#ffcc80",
+      },
+      {
+        id: "17",
+        cells: [
+          [6, 3],
+          [5, 3],
+        ],
+        constraint: {
+          kind: "mirror",
+          group: "n",
+        },
+        color: "#f48fb1",
+      },
+      {
+        id: "18",
+        cells: [
+          [3, 3],
+          [3, 2],
+        ],
+        constraint: {
+          kind: "mirror",
+          group: "n",
+        },
+        color: "#f48fb1",
+      },
+      {
+        id: "19",
+        cells: [[7, 3]],
+        constraint: {
+          kind: "greater",
+          target: 2,
+        },
+        color: "#80deea",
+      },
+      {
+        id: "21",
+        cells: [
+          [4, 8],
+          [5, 8],
+          [6, 8],
+          [5, 7],
+        ],
+        constraint: {
+          kind: "not-equal",
+        },
+        color: "#bcaaa4",
+      },
+      {
+        id: "23",
+        cells: [[5, 5]],
+        constraint: {
+          kind: "sum",
+          target: 6,
+        },
+        color: "#e6ee9c",
+      },
+      {
+        id: "24",
+        cells: [
+          [4, 5],
+          [4, 6],
+          [3, 6],
+          [3, 7],
+          [2, 7],
+        ],
+        constraint: {
+          kind: "not-equal",
+        },
+        color: "#f4a0a0",
+      },
+      {
+        id: "25",
+        cells: [[3, 1]],
+        constraint: {
+          kind: "less",
+          target: 3,
+        },
+        color: "#a0c4e8",
+      },
+      {
+        id: "27",
+        cells: [[2, 3]],
+        constraint: {
+          kind: "mirror",
+          group: "m",
+        },
+        color: "#c4a0d8",
+      },
+      {
+        id: "28",
+        cells: [[5, 9]],
+        constraint: {
+          kind: "mirror",
+          group: "m",
+        },
+        color: "#c4a0d8",
+      },
+    ],
+    dominoes: [
+      {
+        id: "d15",
+        values: [4, 2],
+      },
+      {
+        id: "d20",
+        values: [2, 3],
+      },
+      {
+        id: "d21",
+        values: [1, 6],
+      },
+      {
+        id: "d22",
+        values: [0, 6],
+      },
+      {
+        id: "d23",
+        values: [1, 3],
+      },
+      {
+        id: "d24",
+        values: [2, 3],
+      },
+      {
+        id: "d25",
+        values: [5, 1],
+      },
+      {
+        id: "d26",
+        values: [4, 2],
+      },
+      {
+        id: "d27",
+        values: [1, 4],
+      },
+      {
+        id: "d28",
+        values: [3, 5],
+      },
+      {
+        id: "d29",
+        values: [2, 6],
+      },
+      {
+        id: "d30",
+        values: [5, 1],
+      },
+    ],
+  },
+
   heart: {
     cells: [
       [0, 2],

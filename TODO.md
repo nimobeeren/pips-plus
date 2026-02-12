@@ -1,3 +1,3 @@
 - hard puzzle + dominoes don't fit on screen
-- auto-fill generates invalid domino configurations
+- auto-fill generates invalid domino configurations and can cause page to crash
 - cell background bug for some shapes with holes
