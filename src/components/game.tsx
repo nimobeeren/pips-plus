@@ -36,7 +36,7 @@ import {
 import { GameStatus } from "./game-status";
 import { PauseModal } from "./pause-modal";
 import { ResultsModal } from "./results-modal";
-import { Tray, trayCols, trayDimensions } from "./tray";
+import { MAX_TRAY_COLS, Tray, trayCols, trayDimensions } from "./tray";
 
 /** Padding around the board when computing natural content size. */
 const BOARD_AREA_PADDING_X = 32; // px-4 on each side
@@ -276,7 +276,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   ]);
 
   const prevOffsetXRef = useRef(0);
-  const prevColsRef = useRef(1);
+  const prevColsRef = useRef(MAX_TRAY_COLS);
 
   useLayoutEffect(() => {
     const updateLayout = () => {
