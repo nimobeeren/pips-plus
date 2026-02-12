@@ -39,13 +39,13 @@ export type GameAction =
       trayWidth?: number;
       trayHeight?: number;
     }
-  | { type: "OFFSET_TRAY"; dx: number }
+  | { type: "REPOSITION_TRAY"; prevOffsetX: number; newOffsetX: number }
   | { type: "PICK_UP"; id: string }
   | { type: "MOVE_CURSOR"; direction: "up" | "down" | "left" | "right" }
   | { type: "CONFIRM_PLACEMENT" }
   | { type: "CANCEL_HELD" }
-  | { type: "CLEAN_UP" }
-  | { type: "CLEAR" };
+  | { type: "CLEAN_UP"; trayOffsetX: number }
+  | { type: "CLEAR"; trayOffsetX: number };
 
 export function initState(puzzle: Puzzle): GameState {
   const dominoes: DominoState[] = puzzle.dominoes.map((d, i) => {
@@ -389,19 +389,27 @@ export function reducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case "OFFSET_TRAY": {
-      const nextDominoes = state.dominoes.map((d) =>
-        d.location.type === "tray"
-          ? {
-              ...d,
-              location: {
-                type: "tray" as const,
-                x: d.location.x + action.dx,
-                y: d.location.y,
-              },
-            }
-          : d,
-      );
+    case "REPOSITION_TRAY": {
+      const nextDominoes = state.dominoes.map((d) => {
+        if (d.location.type !== "tray") return d;
+        const index = state.puzzle.dominoes.findIndex((pd) => pd.id === d.id);
+        if (index < 0) return d;
+        const basePos = initialTrayPosition(index);
+        const prevX = basePos.x + action.prevOffsetX;
+        const prevY = basePos.y;
+        // Only move dominoes that are still at their original placeholder position
+        if (d.location.x === prevX && d.location.y === prevY) {
+          return {
+            ...d,
+            location: {
+              type: "tray" as const,
+              x: basePos.x + action.newOffsetX,
+              y: basePos.y,
+            },
+          };
+        }
+        return d;
+      });
       return { ...state, dominoes: nextDominoes };
     }
 
@@ -491,7 +499,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...d,
           orientation: 0 as Orientation,
           zOrder: index,
-          location: { type: "tray" as const, x: pos.x, y: pos.y },
+          location: {
+            type: "tray" as const,
+            x: pos.x + action.trayOffsetX,
+            y: pos.y,
+          },
         };
       });
       return {
@@ -511,7 +523,11 @@ export function reducer(state: GameState, action: GameAction): GameState {
           ...d,
           orientation: 0 as Orientation,
           zOrder: i,
-          location: { type: "tray" as const, x: pos.x, y: pos.y },
+          location: {
+            type: "tray" as const,
+            x: pos.x + action.trayOffsetX,
+            y: pos.y,
+          },
         };
       });
       return {

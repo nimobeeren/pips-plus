@@ -119,7 +119,7 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
 
       {/* Clean up button */}
       {trayDominoes.length > 0 && (
-        <div className="absolute" style={{ top: 0, right: 0 }}>
+        <div className="absolute top-0 right-0">
           <Button variant="outline" size="sm" onClick={onCleanUp}>
             Clean up
           </Button>

@@ -35,7 +35,7 @@ import {
 } from "./game-state";
 import { PauseModal } from "./pause-modal";
 import { ResultsModal } from "./results-modal";
-import { Tray, initialTrayPosition, trayDimensions } from "./tray";
+import { Tray, trayDimensions } from "./tray";
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -199,7 +199,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   const trayRef = useRef<HTMLDivElement>(null);
 
   const handleClear = useCallback(() => {
-    dispatch({ type: "CLEAR" });
+    dispatch({ type: "CLEAR", trayOffsetX: prevOffsetXRef.current });
     if (puzzleResult) {
       clearPuzzleResult(name);
       clearElapsedTime(name);
@@ -212,7 +212,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   }, [name, puzzleResult]);
 
   const handleCleanUp = useCallback(() => {
-    dispatch({ type: "CLEAN_UP" });
+    dispatch({ type: "CLEAN_UP", trayOffsetX: prevOffsetXRef.current });
   }, []);
 
   const computeTrayLayout = useCallback(() => {
@@ -234,37 +234,26 @@ export function Game({ puzzle, name, backTo }: GameProps) {
     return { width: fallback.width, height: fallback.height };
   }, [puzzle.dominoes.length, trayLayout.height, trayLayout.width]);
 
+  const prevOffsetXRef = useRef(0);
+
   useLayoutEffect(() => {
     const updateLayout = () => {
-      setTrayLayout(computeTrayLayout());
+      const layout = computeTrayLayout();
+      const prevOffsetX = prevOffsetXRef.current;
+      if (layout.offsetX !== prevOffsetX) {
+        dispatch({
+          type: "REPOSITION_TRAY",
+          prevOffsetX,
+          newOffsetX: layout.offsetX,
+        });
+        prevOffsetXRef.current = layout.offsetX;
+      }
+      setTrayLayout(layout);
     };
     updateLayout();
     window.addEventListener("resize", updateLayout);
     return () => window.removeEventListener("resize", updateLayout);
   }, [computeTrayLayout]);
-
-  useEffect(() => {
-    if (!trayLayout.offsetX) return;
-    const trayDominoes = state.dominoes.filter(
-      (d) => d.location.type === "tray",
-    );
-    if (!trayDominoes.length) return;
-
-    let allInitial = true;
-    for (const d of trayDominoes) {
-      if (d.location.type !== "tray") continue;
-      const index = puzzle.dominoes.findIndex((pd) => pd.id === d.id);
-      if (index < 0) continue;
-      const pos = initialTrayPosition(index);
-      if (d.location.x !== pos.x || d.location.y !== pos.y) {
-        allInitial = false;
-        break;
-      }
-    }
-    if (allInitial) {
-      dispatch({ type: "OFFSET_TRAY", dx: trayLayout.offsetX });
-    }
-  }, [puzzle.dominoes, state.dominoes, trayLayout.offsetX]);
 
   // Pointer drag handlers
   const handlePointerDown = useCallback(
