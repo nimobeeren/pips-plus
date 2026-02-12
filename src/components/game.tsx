@@ -39,7 +39,8 @@ import { ResultsModal } from "./results-modal";
 import { Tray, trayCols, trayDimensions } from "./tray";
 
 /** Padding around the board when computing natural content size. */
-const BOARD_AREA_PADDING = 32; // p-4 on each side
+const BOARD_AREA_PADDING_X = 32; // px-4 on each side
+const BOARD_AREA_PADDING_Y = 24; // pt-2 + pb-4
 
 const PAUSE_DELAY_MS = 10_000;
 
@@ -278,7 +279,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
       const viewportW = window.innerWidth;
       const viewportH = window.innerHeight;
       const availableH = viewportH - headerHeight;
-      const boardW = boardNaturalSize.width + BOARD_AREA_PADDING * 2;
+      const boardW = boardNaturalSize.width + BOARD_AREA_PADDING_X * 2;
 
       // First pass: compute a preliminary scale from board width alone,
       // so we know how much unscaled width the tray has available.
@@ -289,7 +290,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
 
       // Second pass: compute the final scale including tray height
       const naturalH =
-        boardNaturalSize.height + BOARD_AREA_PADDING * 2 + layout.height;
+        boardNaturalSize.height + BOARD_AREA_PADDING_Y * 2 + layout.height;
       const finalScale = Math.min(1, viewportW / boardW, availableH / naturalH);
 
       // If the final scale differs significantly from hScale (because the
@@ -299,7 +300,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
         const adjustedLayout = computeTrayLayout(finalScale);
         const adjustedNaturalH =
           boardNaturalSize.height +
-          BOARD_AREA_PADDING * 2 +
+          BOARD_AREA_PADDING_Y * 2 +
           adjustedLayout.height;
         const adjustedScale = Math.min(
           1,
@@ -613,7 +614,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
   );
   const scaledContainerW = window.innerWidth / scaleFactor;
   const scaledContainerH =
-    boardNaturalSize.height + BOARD_AREA_PADDING * 2 + trayNaturalDims.height;
+    boardNaturalSize.height + BOARD_AREA_PADDING_Y * 2 + trayNaturalDims.height;
 
   // Max tray height: 40% of viewport, converted to unscaled pixels
   const maxTrayHeight = (window.innerHeight * 0.4) / scaleFactor;
@@ -643,7 +644,7 @@ export function Game({ puzzle, name, backTo }: GameProps) {
           className="flex shrink-0 flex-col"
         >
           {/* Board area */}
-          <div className="flex flex-1 items-center justify-center p-4">
+          <div className="flex flex-1 items-center justify-center px-4 pb-4 pt-2">
             <Board
               ref={boardRef}
               puzzle={puzzle}

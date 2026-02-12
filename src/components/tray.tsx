@@ -136,13 +136,13 @@ export const Tray = forwardRef<HTMLDivElement, TrayProps>(function Tray(
       })}
 
       {/* Clean up button */}
-      {trayDominoes.length > 0 && (
+      {/* {trayDominoes.length > 0 && (
         <div className="absolute" style={{ top: 16, right: TRAY_PADDING_X }}>
           <Button variant="outline" size="sm" onClick={onCleanUp}>
             Clean up
           </Button>
         </div>
-      )}
+      )} */}
     </div>
   );
 });
